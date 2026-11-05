@@ -22,7 +22,7 @@ A desktop YouTube Music client for Windows, built with Rust and Tauri. It's the 
 
 You need Rust, Node.js, pnpm and the Visual Studio C++ build tools.
 
-libmpv isn't in the repo. Put `libmpv-2.dll` in `src-tauri/`, and an `mpv.lib` import library built from it in `.libmpv/`. The steps are in `.github/workflows/windows-release.yml`.
+libmpv isn't in the repo. Put `libmpv-2.dll` in `src-tauri/`, and an `mpv.lib` import library built from it in `.libmpv/`. The steps are in `.github/workflows/release.yml`.
 
 ```bash
 cd ui && pnpm install
