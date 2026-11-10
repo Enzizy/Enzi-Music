@@ -16,7 +16,8 @@ open class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
-        val executable = """npm""";
+        // npx and the pinned CLI: the repo has no package.json for `npm run tauri` to find.
+        val executable = """npx""";
         try {
             runTauriCli(executable)
         } catch (e: Exception) {
@@ -48,7 +49,7 @@ open class BuildTask : DefaultTask() {
         val rootDirRel = rootDirRel ?: throw GradleException("rootDirRel cannot be null")
         val target = target ?: throw GradleException("target cannot be null")
         val release = release ?: throw GradleException("release cannot be null")
-        val args = listOf("run", "--", "tauri", "android", "android-studio-script");
+        val args = listOf("--yes", "@tauri-apps/cli@2.11.5", "android", "android-studio-script");
 
         project.exec {
             workingDir(File(project.projectDir, rootDirRel))
