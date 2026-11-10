@@ -5,7 +5,12 @@ declare global {
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			/** The phone's full-screen player is open (MobileNowPlaying): Back closes it. */
+			player?: boolean;
+			/** Its queue or lyrics sheet is open: Back closes that first. */
+			sheet?: boolean;
+		}
 		// interface Platform {}
 	}
 }

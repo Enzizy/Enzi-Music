@@ -43,6 +43,7 @@
 	import GlobalHotkeysSettings from '$lib/components/GlobalHotkeysSettings.svelte';
 	import LyricsSourcesSettings from '$lib/components/LyricsSourcesSettings.svelte';
 	import EnhancedLyricsSettings from '$lib/components/EnhancedLyricsSettings.svelte';
+	import { mobile } from '$lib/mobile';
 
 	type TabId =
 		| 'general'
@@ -52,7 +53,8 @@
 		| 'discord'
 		| 'data'
 		| 'about';
-	const TABS = $derived<{ id: TabId; label: string; hint: string; icon: typeof Settings02Icon }[]>([
+	type Tab = { id: TabId; label: string; hint: string; icon: typeof Settings02Icon };
+	const TABS = $derived(([
 		{ id: 'general', label: t('settings.tabs.general'), hint: t('settings.tabs.general_hint'), icon: Settings02Icon },
 		{ id: 'themes', label: t('settings.tabs.themes'), hint: t('settings.tabs.themes_hint'), icon: PaintBoardIcon },
 		{ id: 'playback', label: t('settings.tabs.playback'), hint: t('settings.tabs.playback_hint'), icon: PlayCircleIcon },
@@ -60,7 +62,8 @@
 		{ id: 'discord', label: t('settings.tabs.discord'), hint: t('settings.tabs.discord_hint'), icon: DiscordIcon },
 		{ id: 'data', label: t('settings.tabs.data'), hint: t('settings.tabs.data_hint'), icon: Database02Icon },
 		{ id: 'about', label: t('settings.tabs.about'), hint: t('settings.tabs.about_hint'), icon: InformationCircleIcon }
-	]);
+	// Android has no global hotkeys and no Discord client to show a status in.
+	] as Tab[]).filter((tb) => !mobile || (tb.id !== 'hotkeys' && tb.id !== 'discord')));
 
 	// Shared shapes for the settings rows. Kept as strings so the markup below stays readable and
 	// every group looks identical without a wrapper component per row.
@@ -461,23 +464,35 @@
 	     under them, so they need the extra width; every other tab reads better narrow. Deliberately not animated:
 	     transitioning the width relayouts the whole modal every frame, and WebKitGTK is the webview
 	     that would pay for it. -->
+	<!-- A phone gets the whole screen, with the tab rail as a row across the top. -->
 	<Dialog.Content
-		class="gap-0 overflow-hidden p-0 {tab === 'discord' || tab === 'themes' ? 'sm:max-w-5xl' : tab === 'hotkeys' ? 'sm:max-w-4xl' : 'sm:max-w-3xl'}"
+		class="gap-0 overflow-hidden p-0 {mobile
+			? 'h-dvh max-h-none w-screen max-w-none rounded-none sm:max-w-none'
+			: tab === 'discord' || tab === 'themes'
+				? 'sm:max-w-5xl'
+				: tab === 'hotkeys'
+					? 'sm:max-w-4xl'
+					: 'sm:max-w-3xl'}"
 	>
 		<Dialog.Description class="sr-only">{t('settings.title')}</Dialog.Description>
 
-		<div class="flex min-w-0 h-[min(38rem,80vh)]">
+		<div class="flex min-w-0 {mobile ? 'h-full flex-col' : 'h-[min(38rem,80vh)]'}">
 			<!-- Tab rail -->
-			<nav data-settings-nav class="flex w-52 shrink-0 flex-col border-r bg-muted/40 p-3">
-				<Dialog.Title class="px-3 pt-1 pb-4 font-heading text-base font-semibold">
+			<nav
+				data-settings-nav
+				class={mobile
+					? 'flex shrink-0 flex-col border-b bg-muted/40 px-3 pb-2 pt-3'
+					: 'flex w-52 shrink-0 flex-col border-r bg-muted/40 p-3'}
+			>
+				<Dialog.Title class="px-3 pt-1 font-heading text-base font-semibold {mobile ? 'pb-2' : 'pb-4'}">
 					{t('settings.title')}
 				</Dialog.Title>
-				<div class="flex flex-col gap-0.5">
+				<div class={mobile ? 'flex gap-1 overflow-x-auto pb-1' : 'flex flex-col gap-0.5'}>
 					{#each TABS as tb (tb.id)}
 						<button
 							onclick={() => (tab = tb.id)}
 							aria-current={tab === tb.id}
-							class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors {tab ===
+							class="flex {mobile ? 'shrink-0' : 'w-full'} cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors {tab ===
 							tb.id
 								? 'bg-background text-foreground shadow-sm ring-1 ring-border/70'
 								: 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'}"
@@ -492,14 +507,14 @@
 						</button>
 					{/each}
 				</div>
-				{#if version}
+				{#if version && !mobile}
 					<span class="mt-auto px-3 pb-1 text-[11px] text-muted-foreground">v{version}</span>
 				{/if}
 			</nav>
 
 			<!-- Content pane. min-w-0: a flex child's min-width is auto, so without it one wide row
 			     (a long font name, a long path) widens the pane and pushes every tab off the modal. -->
-			<div class="flex min-w-0 flex-1 flex-col">
+			<div class="flex min-h-0 min-w-0 flex-1 flex-col">
 				<!-- h-14 also keeps the dialog's close button clear of the first row. -->
 				<header
 					data-settings-header
@@ -523,6 +538,8 @@
 					{:else if tab === 'general'}
 						<!-- The shortcuts list has no other entry point in the chrome. Closing settings
 						     first: two stacked dialogs would trap focus in the wrong one. -->
+						<!-- No keyboard on a phone. -->
+						{#if !mobile}
 						<button
 							type="button"
 							class="mb-5 inline-flex items-center gap-2 rounded-full border bg-muted/50 px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -537,6 +554,7 @@
 									''}</span
 							>
 						</button>
+						{/if}
 						<section class={GROUP}>
 							<h3 class={LABEL}>{t('settings.sections.activity')}</h3>
 							<div data-settings-card class={CARD}>
@@ -550,11 +568,15 @@
 						<section class={GROUP}>
 							<h3 class={LABEL}>{t('settings.sections.system')}</h3>
 							<div data-settings-card class={CARD}>
+								<!-- Desktop only: Android has no tray, desktop notifications, start-on-login or titlebar. -->
+								{#if !mobile}
 								{@render row({
 									title: t('settings.general.close_to_tray'),
 									desc: t('settings.general.close_to_tray_hint'),
 									control: traySwitch
 								})}
+								{/if}
+								{#if !mobile}
 								{@render row({
 									title: t('settings.general.track_notifications'),
 									desc: t('settings.general.track_notifications_hint'),
@@ -567,11 +589,13 @@
 										control: trackNotificationsFocusedSwitch
 									})}
 								{/if}
+								{/if}
 								{@render row({
 									title: t('settings.general.play_on_start'),
 									desc: t('settings.general.play_on_start_hint'),
 									control: playOnStartSwitch
 								})}
+								{#if !mobile}
 								{@render row({
 									title: t('settings.general.autostart'),
 									desc: t('settings.general.autostart_hint'),
@@ -584,7 +608,8 @@
 										control: startMinimizedSwitch
 									})}
 								{/if}
-								{#if !systemTitlebarFixed}
+								{/if}
+								{#if !systemTitlebarFixed && !mobile}
 									{@render row({
 										title: t('settings.general.system_titlebar'),
 										desc: t('settings.general.system_titlebar_hint'),
@@ -768,12 +793,15 @@
 									control: updateButton,
 									below: updateResult && !updateState.available ? updateAlert : undefined
 								})}
+								<!-- Android updates come as a new APK, not through the app. -->
+								{#if !mobile}
 								{@render row({
 									title: t('settings.general.update_banner'),
 									desc: t('settings.general.update_banner_hint'),
 									control: bannerSwitch,
 									tall: true
 								})}
+								{/if}
 								{#if betaAvailable}
 									{@render row({
 										title: t('settings.about.beta'),

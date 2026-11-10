@@ -1,4 +1,6 @@
 <script lang="ts">
+	// Dev-only: a stand-in backend for previewing in a browser (?mock). First, before anything calls Rust.
+	import '$lib/devmock';
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.png';
 	import { ModeWatcher, mode } from 'mode-watcher';
@@ -28,6 +30,10 @@
 	import { t } from '$lib/i18n.svelte';
 	import { blockForeignDrag, dragScroll } from '$lib/dnd';
 	import { suppressNative } from '$lib/menu';
+	import { mobile } from '$lib/mobile';
+	import BottomNav from '$lib/components/BottomNav.svelte';
+	import MobilePlayerBar from '$lib/components/MobilePlayerBar.svelte';
+	import MobileNowPlaying from '$lib/components/MobileNowPlaying.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Titlebar from '$lib/components/Titlebar.svelte';
 	import ResizeBorders from '$lib/components/ResizeBorders.svelte';
@@ -231,11 +237,13 @@
 					.h}px;box-shadow:0 0 0 100vmax var(--background)"
 			></div>
 		{/if}
-		<ResizeBorders />
-		<Titlebar />
+		{#if !mobile}
+			<ResizeBorders />
+			<Titlebar />
+		{/if}
 		<!-- relative: the queue and lyrics panels are absolute overlays inside it (see QueuePanel). -->
 		<div class="relative flex min-h-0 flex-1">
-			<Sidebar />
+			{#if !mobile}<Sidebar />{/if}
 			<!-- dragScroll: dragging a card up to home's Shortcuts grid has to be possible from anywhere in
 			     the feed, so aiming at the top edge scrolls this container while the drag is in flight. -->
 			<main
@@ -255,7 +263,8 @@
 			     parking container until the view borrows the picture. Not on Linux, where mpv draws the
 			     picture itself (prefs.nativeVideo). -->
 			{#if !prefs.nativeVideo}<VideoSurface />{/if}
-			{#if np.open && playback.now}<NowPlaying
+			{#if mobile && np.open}<MobileNowPlaying />{/if}
+			{#if !mobile && np.open && playback.now}<NowPlaying
 					queueOpen={showQueue}
 					lyricsOpen={showLyrics || showComments}
 				/>{/if}
@@ -267,7 +276,10 @@
 				/>{/if}
 			{#if showQueue}<QueuePanel onClose={() => (queueOpen = false)} />{/if}
 		</div>
-		{#if playback.now}
+		{#if mobile}
+			<MobilePlayerBar />
+			<BottomNav />
+		{:else if playback.now}
 			<!-- Slides up from its own height on first play; leaves instantly (bar removal is rare).
 			     z-20 on the wrapper, not the bar: the intro's transform makes this a stacking context,
 			     so a z on the footer inside would be trapped under it. The now-playing view is z-20 and

@@ -188,7 +188,7 @@
 
 	<!-- The tabs always render: Local music needs neither an account nor a connection. -->
 	<Tabs.Root bind:value={tab}>
-		<Tabs.List class="mb-4">
+		<Tabs.List class="mb-4 max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
 			<Tabs.Trigger value="all">
 				<HugeiconsIcon icon={SquareStackIcon} class="h-4 w-4" /> {t('common.all')}
 			</Tabs.Trigger>
@@ -234,7 +234,7 @@
 					<!-- `line` rather than the pill row above it: two identical pill rows stacked read as
 					     one control drawn twice. -->
 					<Tabs.Root bind:value={uploadTab}>
-						<Tabs.List variant="line" class="mb-4">
+						<Tabs.List variant="line" class="mb-4 max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
 							<Tabs.Trigger value="all">
 								<HugeiconsIcon icon={SquareStackIcon} class="h-4 w-4" /> {t('common.all')}
 							</Tabs.Trigger>
@@ -330,7 +330,7 @@
 				{:else if tab === 'artists'}
 					<!-- `line`, same as Uploads: a second pill row would read as the first drawn twice. -->
 					<Tabs.Root bind:value={artistTab}>
-						<Tabs.List variant="line" class="mb-4">
+						<Tabs.List variant="line" class="mb-4 max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
 							<Tabs.Trigger value="artists">
 								<HugeiconsIcon icon={UserSharingIcon} class="h-4 w-4" /> {t('library.artists_tab')}
 							</Tabs.Trigger>

@@ -6,6 +6,7 @@
 	import { auth, personal, playback } from '$lib/player.svelte';
 	import { thumb } from '$lib/thumb';
 	import { t, type TranslationKey } from '$lib/i18n.svelte';
+	import { mobile } from '$lib/mobile';
 
 	// Fixed at mount — a greeting that flips mid-session is uncanny.
 	const hour = new Date().getHours();
@@ -91,7 +92,7 @@
 					class="shrink-0 rounded-full object-cover shadow-md"
 				/>
 			{/if}
-			<h1 class="truncate font-heading text-4xl font-bold tracking-tight drop-shadow-sm">
+			<h1 class="truncate font-heading {mobile ? 'text-3xl' : 'text-4xl'} font-bold tracking-tight drop-shadow-sm">
 				{daypart}{auth.account?.name ? `, ${auth.account.name.split(' ')[0]}` : ''}
 			</h1>
 		</div>
@@ -106,6 +107,8 @@
 			>
 				<HugeiconsIcon icon={HistoryIcon} class="h-5 w-5" />
 			</button>
+			<!-- A phone has Search in the bottom tabs, and no room for a field beside the greeting. -->
+			{#if !mobile}
 			<form class="relative w-full max-w-xs" onsubmit={(e) => { e.preventDefault(); goSearch(); }}>
 				<HugeiconsIcon
 					icon={Search01Icon}
@@ -120,6 +123,7 @@
 					panelClass="right-0 w-[26rem]"
 				/>
 			</form>
+			{/if}
 		</div>
 	</div>
 </header>
