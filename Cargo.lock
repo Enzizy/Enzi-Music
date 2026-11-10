@@ -1849,6 +1849,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "innertube",
+ "jni 0.21.1",
  "ksni",
  "libc",
  "lindera",

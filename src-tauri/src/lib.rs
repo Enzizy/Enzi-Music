@@ -686,6 +686,12 @@ pub fn run() {
         );
     }
 
+    // The media notification and background playback service (src/android/media.rs).
+    #[cfg(target_os = "android")]
+    {
+        builder = builder.plugin(media::init());
+    }
+
     #[cfg(desktop)]
     {
         builder = builder

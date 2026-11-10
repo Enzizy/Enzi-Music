@@ -76,6 +76,8 @@ notify-rust = "4"
 # version tauri already uses there.
 [target.'cfg(target_os = "android")'.dependencies]
 tao = "0.35"
+# MediaBridge.onAction, the Kotlin playback service calling back into Rust (src/android/media.rs).
+jni = "0.21"
 
 [dev-dependencies]
 # Mock runtime for the IPC guard test (lib.rs `only_ui`).

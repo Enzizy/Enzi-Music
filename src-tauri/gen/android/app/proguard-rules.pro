@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Called from Rust by name, so the shrinker can't see they're used.
+-keep class com.enzi.music.MediaBridge { *; }
+-keep class com.enzi.music.MediaSessionPlugin { *; }
+-keep class com.enzi.music.MetadataArgs { *; }
+-keep class com.enzi.music.PlaybackArgs { *; }
