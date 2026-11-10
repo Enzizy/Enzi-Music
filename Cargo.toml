@@ -30,3 +30,8 @@ rand = "0.8"
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
+
+# rquickjs-sys ships pre-generated bindings per target and has none for Android. Android's C layout
+# matches Linux on the same CPU, so this copy adds those two files and is otherwise untouched.
+[patch.crates-io]
+rquickjs-sys = { path = "vendor/rquickjs-sys" }

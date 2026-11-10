@@ -838,6 +838,14 @@ fn ensure_reverb_asset(decks: &Decks, preset: u8) -> Result<std::path::PathBuf, 
 
 fn apply_filters(decks: &Decks, deck: usize, af: &AudioFilters) -> Result<(), Error> {
     let Some(mpv) = decks.mpv(deck) else { return Ok(()) };
+    // Android's libmpv has no FFmpeg audio filters, so the loudness gain goes through mpv's own
+    // volume-gain. There is no limiter to catch the peaks of a boosted track, so it only cuts.
+    #[cfg(target_os = "android")]
+    let mut chain = {
+        mpv.set_property("volume-gain", af.gain[deck].unwrap_or(0.0).min(0.0))?;
+        String::new()
+    };
+    #[cfg(not(target_os = "android"))]
     let mut chain = af_chain(af.gain[deck], 0, 1.0);
     if af.reverb.enabled {
         if !chain.is_empty() {
@@ -1027,7 +1035,10 @@ fn af_chain(gain_db: Option<f64>, semitones: i32, speed: f64) -> String {
         Some(g) => chain.push(format!("lavfi=[volume={g}dB]")),
         None => {}
     }
-    if semitones != 0 || speed != 1.0 {
+    // Android's libmpv has no Rubber Band: a tempo change alone is left to mpv's own scaletempo2,
+    // which `speed` brings in, and a pitch change fails as it does on any build without it.
+    let stretch = if cfg!(target_os = "android") { semitones != 0 } else { semitones != 0 || speed != 1.0 };
+    if stretch {
         // Semitones → frequency multiplier (equal temperament).
         // Short windows reduce processing latency; shifted formants follow the pitch change.
         chain.push(format!(

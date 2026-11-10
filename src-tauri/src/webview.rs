@@ -80,6 +80,10 @@ impl Bridge {
     /// failure the just-built window is destroyed so its label can be reused (no orphan
     /// "already exists").
     pub async fn create(app: &AppHandle, label: &str) -> Result<Bridge, Error> {
+        // An Android app gets one webview, so the cipher falls back to the clients that need none.
+        #[cfg(mobile)]
+        #[allow(unreachable_code)]
+        return Err(Error::Build("no hidden webview on Android".into()));
         // Reclaim the label if a prior attempt left an orphan (or a concurrent build raced us).
         destroy_and_wait(app, label).await;
 
@@ -101,12 +105,12 @@ impl Bridge {
         let label2 = label.to_string();
         let ready_slot2 = ready_slot.clone();
         app.run_on_main_thread(move || {
-            let res = crate::http::proxied(WebviewWindowBuilder::new(&app2, label2, webview_url))
+            let builder = crate::http::proxied(WebviewWindowBuilder::new(&app2, label2, webview_url));
+            #[cfg(desktop)]
+            let builder = builder.skip_taskbar(true).decorations(false).focused(false);
+            let res = builder
                 .visible(false)
                 .inner_size(1.0, 1.0)
-                .skip_taskbar(true)
-                .decorations(false)
-                .focused(false)
                 .on_page_load(move |_wv, payload| {
                     if matches!(payload.event(), PageLoadEvent::Finished) {
                         if let Some(tx) = ready_slot2.lock().unwrap().take() {
