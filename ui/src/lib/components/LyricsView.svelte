@@ -1,10 +1,10 @@
 <script module lang="ts">
-	// Romanization (#202) and translations (#329) are one switch each: on stays on across every song
-	// until it is turned off. Shared by every lyrics view, and the `storage` event carries a change
-	// over to the mini player window. Translations start on, the way they always showed.
-	const KEYS = { romanized: 'lyrics_romanized', translated: 'lyrics_translated' } as const;
+	// Translations (#329) are one switch: on stays on across every song until it is turned off.
+	// Shared by every lyrics view, and the `storage` event carries a change over to the mini player
+	// window. They start on, the way they always showed.
+	const KEYS = { translated: 'lyrics_translated' } as const;
 	type Pref = keyof typeof KEYS;
-	const DEFAULTS: Record<Pref, boolean> = { romanized: false, translated: true };
+	const DEFAULTS: Record<Pref, boolean> = { translated: true };
 	const SIZE_KEY = 'lyrics_size';
 	const SIZES = [0.85, 1, 1.15, 1.3, 1.5];
 
@@ -39,7 +39,7 @@
 		}
 	}
 
-	const prefs = $state({ romanized: load('romanized'), translated: load('translated') });
+	const prefs = $state({ translated: load('translated') });
 	window.addEventListener('storage', (e) => {
 		for (const pref of Object.keys(KEYS) as Pref[]) if (e.key === KEYS[pref]) prefs[pref] = load(pref);
 		if (e.key === SIZE_KEY) size.value = loadSize();
@@ -59,7 +59,6 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import {
-		CharacterPhoneticIcon,
 		MinusSignIcon,
 		PlusSignIcon,
 		Search01Icon,
@@ -98,8 +97,6 @@
 	let loading = $state(true);
 	let scroller: HTMLElement | undefined = $state();
 
-	const canRomanize = $derived(!!lyrics?.lines.some((l) => l.romanized));
-	const showRomanized = $derived(canRomanize && prefs.romanized);
 	const canTranslate = $derived(!!lyrics?.lines.some((l) => l.translation));
 	const showTranslation = $derived(canTranslate && prefs.translated);
 	const enhanced = $derived(appearance.enhancedLyrics);
@@ -203,9 +200,9 @@
 
 	$effect(() => {
 		const i = activeIndex;
-		// Re-centre after the layout width/font changes or the romanized lines come and go, and
-		// jump rather than glide across it. (Also fires on the first run.)
-		const layout = `${expanded} ${showRomanized} ${size.value}`;
+		// Re-centre after the layout width or font changes, and jump rather than glide across it.
+		// (Also fires on the first run.)
+		const layout = `${expanded} ${size.value}`;
 		if (layout !== wasLayout) {
 			wasLayout = layout;
 			hasScrolled = false;
@@ -247,11 +244,7 @@
 	 *  track, for the whole session, which meant the app never reached an idle frame. */
 	const needsFrameClock = $derived(
 		!!lyrics?.synced &&
-			(lyrics.lines.some(
-				(l) =>
-					(l.words?.length ?? 0) > 0 ||
-					(showRomanized && (l.romanized_words?.length ?? 0) > 0)
-			) ||
+			(lyrics.lines.some((l) => (l.words?.length ?? 0) > 0) ||
 				animateSynced)
 	);
 
@@ -379,7 +372,6 @@
 
 	function getLineWords(line: api.LyricLine, index: number, text?: string): api.LyricWord[] {
 		if (!text && line.words && line.words.length > 0) return line.words;
-		if (text && line.romanized_words && line.romanized_words.length > 0) return line.romanized_words;
 		if (!animateSynced || !lyrics || line.time_ms === undefined) return [];
 		const raw = (text ?? line.text).trim();
 		if (!raw || raw === '♪') return [];
@@ -453,8 +445,6 @@
 				{@const isActive = i === activeIndex}
 				{@const isPast = i < activeIndex}
 				{@const words = getLineWords(line, i)}
-				{@const romWords =
-					showRomanized && line.romanized ? getLineWords(line, i, line.romanized) : []}
 				<!-- Dimming is `opacity` on the line, never a translucent text colour. A colour with
 				     alpha is composited glyph by glyph, so wherever two glyphs overlap the coverage
 				     adds up and the overlap comes out brighter than the rest of the line: very
@@ -468,7 +458,7 @@
 					class="block w-full origin-left cursor-pointer text-left font-heading font-bold leading-snug transition-[color,opacity,transform] duration-300 ease-out hover:text-foreground hover:opacity-100 dark:hover:opacity-100
 						{expanded ? 'py-3 text-[1.875em]' : compact ? 'py-1 text-[0.875em]' : 'py-2 text-[1.25em]'}
 						{isActive
-						? enhanced && (words.length > 0 || romWords.length > 0)
+						? enhanced && words.length > 0
 							? 'text-foreground'
 							: 'scale-[1.04] text-foreground'
 						: isPast
@@ -479,18 +469,6 @@
 						{@render sweep(words, isActive)}
 					{:else}
 						<span>{line.text || '♪'}</span>
-					{/if}
-
-					{#if showRomanized && line.romanized}
-						<!-- Relative size, so it follows the line from the mini player to theater mode.
-						     Apple's reading is timed to the same syllables and sweeps with the line. -->
-						<span class="mt-0.5 block text-[length:max(0.62em,11px)] font-semibold">
-							{#if romWords.length > 0}
-								{@render sweep(romWords, isActive)}
-							{:else}
-								{line.romanized}
-							{/if}
-						</span>
 					{/if}
 
 					{#if showTranslation && line.translation}
@@ -518,9 +496,6 @@
 				{#if line.text}
 					<div>
 						<p>{line.text}</p>
-						{#if showRomanized && line.romanized}
-							<p class="text-[0.85em] text-muted-foreground">{line.romanized}</p>
-						{/if}
 						{#if showTranslation && line.translation}
 							<p class="text-xs italic text-muted-foreground" style="font-size:{0.75 * size.value}rem">
 								{line.translation}
@@ -563,15 +538,6 @@
 				TranslateIcon,
 				t('lyrics.translation'),
 				t('lyrics.translation_hint')
-			)}
-		{/if}
-		{#if canRomanize}
-			{@render prefToggle(
-				'romanized',
-				showRomanized,
-				CharacterPhoneticIcon,
-				t('lyrics.romanize'),
-				t('lyrics.romanize_hint')
 			)}
 		{/if}
 		<!-- One icon, because the footer is full (the side panel is 320px). The popover holds the
@@ -645,8 +611,7 @@
 	</button>
 {/snippet}
 
-<!-- Word-by-word karaoke sweep (Better Lyrics style), for the line and for Apple's timed
-     romanization under it. -->
+<!-- Word-by-word karaoke sweep (Better Lyrics style). -->
 {#snippet sweep(words: api.LyricWord[], active: boolean)}
 	<span class="inline-flex flex-wrap items-baseline">
 		{#each words as word, wIdx (wIdx)}

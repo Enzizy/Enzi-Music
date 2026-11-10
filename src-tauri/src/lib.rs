@@ -30,10 +30,12 @@ mod notify;
 #[cfg(target_os = "android")]
 #[path = "android/ffmpeg.rs"]
 mod ffmpeg;
+#[cfg(target_os = "android")]
+#[path = "android/login.rs"]
+mod login;
 mod orchestrator;
 #[cfg_attr(target_os = "android", path = "android/potoken.rs")]
 mod potoken;
-mod romanize;
 mod session;
 mod state;
 mod stats;
@@ -689,7 +691,7 @@ pub fn run() {
     // The media notification and background playback service (src/android/media.rs).
     #[cfg(target_os = "android")]
     {
-        builder = builder.plugin(media::init());
+        builder = builder.plugin(media::init()).plugin(login::init());
     }
 
     #[cfg(desktop)]

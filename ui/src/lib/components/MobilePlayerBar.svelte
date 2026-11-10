@@ -43,7 +43,8 @@
 				onclick={() => api.togglePause()}
 				aria-label={playback.paused ? t('player.play') : t('player.pause')}
 			>
-				<HugeiconsIcon icon={playback.paused ? PlayIcon : PauseIcon} class="h-6 w-6" />
+				<!-- HugeiconsIcon freezes `icon` at mount: toggle with altIcon/showAlt, as PlayerBar does. -->
+				<HugeiconsIcon icon={PauseIcon} altIcon={PlayIcon} showAlt={playback.paused} class="h-6 w-6" />
 			</button>
 			<button
 				type="button"

@@ -171,7 +171,7 @@ pub struct LyricsRequest {
     pub searched: bool,
 }
 
-/// Entry point for the `get_lyrics` command, romanized. `source: None` is the song's lyrics (cached,
+/// Entry point for the `get_lyrics` command. `source: None` is the song's lyrics (cached,
 /// or down the provider list). `Some(id)` asks that one provider alone and caches nothing: the
 /// source picker's preview, which also works for a provider switched off in Settings.
 pub async fn get_lyrics(
@@ -179,14 +179,10 @@ pub async fn get_lyrics(
     req: LyricsRequest,
     source: Option<String>,
 ) -> Result<Option<Lyrics>, String> {
-    let lyrics = match source {
+    Ok(match source {
         Some(id) => preview(state, req, &id).await?,
         None => cached_or_fetched(state, req).await,
-    };
-    Ok(lyrics.map(|mut l| {
-        crate::romanize::fill(&mut l);
-        l
-    }))
+    })
 }
 
 /// The source picker's choice for one song. `Some(id)`: that provider's lyrics, kept for the song
@@ -197,7 +193,7 @@ pub async fn choose_source(
     source: Option<String>,
 ) -> Option<Lyrics> {
     let video_id = req.video_id.clone();
-    let mut lyrics = match source {
+    let lyrics = match source {
         Some(id) => {
             let mut l = preview(state, req, &id).await.ok().flatten()?;
             l.pinned = true;
@@ -211,7 +207,6 @@ pub async fn choose_source(
             cached_or_fetched(state, req).await?
         }
     };
-    crate::romanize::fill(&mut lyrics);
     Some(lyrics)
 }
 

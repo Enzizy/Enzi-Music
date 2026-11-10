@@ -61,6 +61,14 @@ const ADD_ACCOUNT_URL: &str =
 /// the `auth-changed` event, or `login-error` on failure). `add_account` picks the AddSession
 /// flow so an additional Google account can be added while another is signed in.
 pub fn open_login(app: AppHandle, state: Arc<AppState>, add_account: bool) {
+    // Android has one webview, so sign-in opens a native screen instead (android/login.rs).
+    #[cfg(target_os = "android")]
+    {
+        let _ = state;
+        crate::login::open(&app, add_account);
+        #[allow(unreachable_code)]
+        return;
+    }
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<()>();
 
     // When the webview lands on music.youtube.com, capture cookies + sign in. Runs off the
@@ -75,18 +83,7 @@ pub fn open_login(app: AppHandle, state: Arc<AppState>, add_account: bool) {
                 for _ in 0..6 {
                     let cookie = read_login_cookies(&app, LOGIN_LABEL).await;
                     if innertube::cookie_sapisid(&cookie).is_some() {
-                        match state.sign_in(cookie, None).await {
-                            Ok(SignInOutcome::Complete) => {
-                                let _ = app.emit("login-done", ());
-                            }
-                            // The authenticated cookie is saved, but the account remains
-                            // deliberately unfinished until the main-window picker selects a
-                            // server-issued delegated identity.
-                            Ok(SignInOutcome::SelectionRequired) => {}
-                            Err(e) => {
-                                let _ = app.emit("login-error", e);
-                            }
-                        }
+                        finish_sign_in(&app, &state, cookie).await;
                         close_login(&app);
                         return;
                     }
@@ -140,6 +137,22 @@ pub fn open_login(app: AppHandle, state: Arc<AppState>, add_account: bool) {
     });
     if let Err(e) = dispatched {
         let _ = app.emit("login-error", format!("Couldn't open the sign-in window: {e}"));
+    }
+}
+
+/// Sign in with the YouTube cookies a login screen captured, and tell the UI how it went. Shared by
+/// the desktop login window and the Android sign-in screen.
+pub(crate) async fn finish_sign_in(app: &AppHandle, state: &Arc<AppState>, cookie: String) {
+    match state.sign_in(cookie, None).await {
+        Ok(SignInOutcome::Complete) => {
+            let _ = app.emit("login-done", ());
+        }
+        // The authenticated cookie is saved, but the account remains deliberately unfinished
+        // until the main-window picker selects a server-issued delegated identity.
+        Ok(SignInOutcome::SelectionRequired) => {}
+        Err(e) => {
+            let _ = app.emit("login-error", e);
+        }
     }
 }
 

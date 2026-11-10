@@ -7,6 +7,7 @@
 	import { thumb } from '$lib/thumb';
 	import { t, type TranslationKey } from '$lib/i18n.svelte';
 	import { mobile } from '$lib/mobile';
+	import AccountMenu from './AccountMenu.svelte';
 
 	// Fixed at mount — a greeting that flips mid-session is uncanny.
 	const hour = new Date().getHours();
@@ -97,6 +98,12 @@
 			</h1>
 		</div>
 		<div class="flex shrink-0 items-center gap-2">
+			<!-- The account lives in the titlebar, which a phone doesn't have. -->
+			{#if mobile}
+				<div class="flex h-9 items-center overflow-hidden rounded-full border border-border">
+					<AccountMenu />
+				</div>
+			{/if}
 			<!-- Listen Together moved out of here and lives on the titlebar alone: history is the thing
 			     you reach for from the home page. -->
 			<button

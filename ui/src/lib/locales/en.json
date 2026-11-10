@@ -932,8 +932,6 @@
 		"instrumental": "Instrumental",
 		"none_found": "No lyrics found for this track.",
 		"source": "Lyrics from {source}",
-		"romanize": "Romanized",
-		"romanize_hint": "Show how each line is pronounced, in Latin letters",
 		"find": "Find lyrics",
 		"none_found_hint": "Try another source, or search with a different title.",
 		"sources_title": "Lyrics source",

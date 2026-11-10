@@ -25,3 +25,6 @@
 -keep class com.enzi.music.MediaSessionPlugin { *; }
 -keep class com.enzi.music.MetadataArgs { *; }
 -keep class com.enzi.music.PlaybackArgs { *; }
+-keep class com.enzi.music.LoginBridge { *; }
+-keep class com.enzi.music.LoginPlugin { *; }
+-keep class com.enzi.music.LoginArgs { *; }
