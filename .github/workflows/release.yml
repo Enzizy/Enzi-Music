@@ -381,8 +381,13 @@ jobs:
           set -euo pipefail
           (cd ui && pnpm build)
           tauri android build --apk --target aarch64 --config '{"build":{"beforeBuildCommand":""}}'
-          SRC=src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk
-          [ -f "$SRC" ] || { echo "::error::no signed APK at $SRC"; find src-tauri/gen/android/app/build/outputs -name '*.apk'; exit 1; }
+          # The CLI builds the "universal" flavour (limited to arm64 here), not the arm64 one the
+          # local script builds, so look for whichever signed release APK came out.
+          SRC="$(find src-tauri/gen/android/app/build/outputs/apk -name '*-release.apk' ! -name '*unsigned*' | head -1)"
+          [ -n "$SRC" ] || { echo "::error::no signed release APK"; find src-tauri/gen/android/app/build/outputs -name '*.apk'; exit 1; }
+          echo "built $SRC"
+          # Signed with the release key, or Android won't install it over an earlier release.
+          "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner" verify --print-certs "$SRC" | head -2
           mkdir -p out
           cp "$SRC" "out/Enzi-Music_${VERSION}_arm64.apk"
 
