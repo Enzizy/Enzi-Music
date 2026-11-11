@@ -336,7 +336,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
+          # `yes` is cut off once sdkmanager finishes, which pipefail would call a failure.
+          { yes || true; } | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
+          [ -d "$ANDROID_HOME/ndk/$NDK_VERSION" ] || { echo "::error::NDK $NDK_VERSION did not install"; exit 1; }
           echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
           rustup target add aarch64-linux-android
 
