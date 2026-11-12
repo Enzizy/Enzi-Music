@@ -1737,7 +1737,7 @@ dependencies = [
 
 [[package]]
 name = "enzi-music-app"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2945,7 +2945,7 @@ dependencies = [
 
 [[package]]
 name = "innertube"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
@@ -4348,7 +4348,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "player"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "libc",
  "libmpv2",
