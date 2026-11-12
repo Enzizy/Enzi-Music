@@ -69,6 +69,8 @@ notify-rust = "4"
 tao = "0.35"
 # MediaBridge.onAction, the Kotlin playback service calling back into Rust (src/android/media.rs).
 jni = "0.21"
+# Opening links in the phone's browser (open_external), through an Android intent.
+tauri-plugin-opener = "2"
 
 [dev-dependencies]
 # Mock runtime for the IPC guard test (lib.rs `only_ui`).

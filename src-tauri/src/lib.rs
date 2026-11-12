@@ -691,7 +691,10 @@ pub fn run() {
     // The media notification and background playback service (src/android/media.rs).
     #[cfg(target_os = "android")]
     {
-        builder = builder.plugin(media::init()).plugin(login::init());
+        builder = builder
+            .plugin(media::init())
+            .plugin(login::init())
+            .plugin(tauri_plugin_opener::init());
     }
 
     #[cfg(desktop)]

@@ -147,12 +147,6 @@ mod tests {
     }
 }
 
-/// Opening links needs an Android intent, which isn't wired up yet.
-#[cfg(mobile)]
-pub(crate) fn open_browser(_url: &str) -> Result<(), String> {
-    Err("Opening links isn't supported on Android yet".into())
-}
-
 /// Open a URL in the user's default browser.
 #[cfg(desktop)]
 pub(crate) fn open_browser(url: &str) -> Result<(), String> {

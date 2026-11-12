@@ -45,6 +45,10 @@
 	import EnhancedLyricsSettings from '$lib/components/EnhancedLyricsSettings.svelte';
 	import { mobile } from '$lib/mobile';
 
+	// The author's credits on the About tab.
+	const GITHUB_URL = 'https://github.com/Enzizy';
+	const PORTFOLIO_URL = 'https://zhyronne.workwithoddly.com';
+
 	type TabId =
 		| 'general'
 		| 'themes'
@@ -777,6 +781,26 @@
 							</div>
 							<p class="mt-1.5 max-w-prose text-xs leading-relaxed text-muted-foreground">
 								{t('settings.about.description')}
+							</p>
+							<p class="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+								{t('settings.about.made_by')}
+								<button
+									type="button"
+									class="cursor-pointer font-semibold text-foreground hover:text-primary hover:underline"
+									onclick={() => api.openExternal(PORTFOLIO_URL)}>Zhyronne</button
+								>
+								<span aria-hidden="true">·</span>
+								<button
+									type="button"
+									class="cursor-pointer font-semibold text-foreground hover:text-primary hover:underline"
+									onclick={() => api.openExternal(GITHUB_URL)}>GitHub</button
+								>
+								<span aria-hidden="true">·</span>
+								<button
+									type="button"
+									class="cursor-pointer font-semibold text-foreground hover:text-primary hover:underline"
+									onclick={() => api.openExternal(PORTFOLIO_URL)}>{t('settings.about.portfolio')}</button
+								>
 							</p>
 						</div>
 

@@ -2421,8 +2421,21 @@ pub async fn check_beta_update(webview: tauri::Webview) -> Result<Option<BetaUpd
 /// Open a link from the UI in the real browser. An `<a href>` inside the webview would navigate
 /// the app itself off the SPA, with no way back.
 #[tauri::command]
-pub async fn open_external(url: String) -> Result<(), String> {
-    crate::http::open_browser(&url)
+pub async fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    #[cfg(mobile)]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        // Only web pages, the same rule the desktop opener applies.
+        if !url.starts_with("https://") && !url.starts_with("http://") {
+            return Err("only http(s) links".into());
+        }
+        app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+    }
+    #[cfg(desktop)]
+    {
+        let _ = app;
+        crate::http::open_browser(&url)
+    }
 }
 
 /// Real quit from the UI (Ctrl+Q / Cmd+Q). Positions are saved by the Exit handler in lib.rs.

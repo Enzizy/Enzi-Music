@@ -663,6 +663,8 @@
 		},
 		"about": {
 			"description": "A desktop YouTube Music client, based on Limusic by SimoHypers. Free software under the GNU GPL v3.",
+			"made_by": "Made by",
+			"portfolio": "Portfolio",
 			"version": "Version {version}",
 			"check_updates": "Check for updates",
 			"checking_updates": "Checking for updates...",
