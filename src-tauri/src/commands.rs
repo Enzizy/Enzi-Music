@@ -2294,9 +2294,15 @@ pub struct ReleaseNote {
 /// is cut, and unauthenticated GitHub allows 60 requests an hour.
 #[tauri::command]
 pub async fn release_notes() -> Result<Vec<ReleaseNote>, String> {
-    static CACHE: std::sync::OnceLock<Vec<ReleaseNote>> = std::sync::OnceLock::new();
-    if let Some(cached) = CACHE.get() {
-        return Ok(cached.clone());
+    // An hour, not for the whole run: the update check asks every six hours, and on Android the
+    // playback service keeps the app running for days, so a list kept forever would never show a
+    // new release.
+    static CACHE: std::sync::Mutex<Option<(std::time::Instant, Vec<ReleaseNote>)>> =
+        std::sync::Mutex::new(None);
+    if let Some((at, notes)) = CACHE.lock().unwrap().as_ref() {
+        if at.elapsed() < std::time::Duration::from_secs(60 * 60) {
+            return Ok(notes.clone());
+        }
     }
     #[derive(serde::Deserialize)]
     struct GhRelease {
@@ -2331,7 +2337,8 @@ pub async fn release_notes() -> Result<Vec<ReleaseNote>, String> {
             body: r.body.unwrap_or_default(),
         })
         .collect();
-    Ok(CACHE.get_or_init(|| notes).clone())
+    *CACHE.lock().unwrap() = Some((std::time::Instant::now(), notes.clone()));
+    Ok(notes)
 }
 
 /// Whether this build can install an update itself, or only point the user at the download.

@@ -1,5 +1,5 @@
 // Dev-only stand-in for the Rust backend, so the interface can be laid out in a plain browser:
-// `pnpm dev`, then open http://localhost:5183/?mock. It plays a made-up queue and answers every other
+// `pnpm dev`, then open http://localhost:5183/?mock (add &update for a newer release). It plays a made-up queue and answers every other
 // command with nothing. Inside the app, and in any build, Tauri's own backend is there and this
 // never runs.
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks';
@@ -58,7 +58,7 @@ if (
 ) {
 	mockWindows('main');
 	mockIPC(
-		(cmd) => {
+		(cmd, args) => {
 			switch (cmd) {
 				case 'get_playback':
 					return { speed: 1, semitones: 0, reverb: { enabled: false }, now: now(current), paused, position: 52, duration: 214, volume: 80 };
@@ -66,6 +66,16 @@ if (
 					return queue;
 				case 'get_settings':
 					return {};
+				case 'plugin:app|version':
+					return '0.2.3';
+				// A newer release, so the update banner can be laid out (?mock&update).
+				case 'release_notes':
+					return new URLSearchParams(location.search).has('update')
+						? [{ version: '9.9.9', date: '2026-01-01', body: '' }]
+						: [];
+				case 'open_external':
+					(window as unknown as { lastOpened?: unknown }).lastOpened = (args as { url?: string } | undefined)?.url;
+					return null;
 				case 'toggle_pause':
 					paused = !paused;
 					void emit('playback-state', paused ? 'paused' : 'playing');

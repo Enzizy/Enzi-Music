@@ -810,22 +810,21 @@
 								{@render row({
 									title: t('settings.about.check_updates'),
 									desc: updateState.available && !updateState.canInstall
-										? `${availableMessage(updateState.available)} ${t('settings.about.update_packaged')}`
+										? mobile
+											? `${availableMessage(updateState.available)} ${t('settings.about.update_apk')}`
+											: `${availableMessage(updateState.available)} ${t('settings.about.update_packaged')}`
 										: updateState.available
 											? availableMessage(updateState.available)
 											: t('settings.about.up_to_date'),
 									control: updateButton,
 									below: updateResult && !updateState.available ? updateAlert : undefined
 								})}
-								<!-- Android updates come as a new APK, not through the app. -->
-								{#if !mobile}
 								{@render row({
 									title: t('settings.general.update_banner'),
 									desc: t('settings.general.update_banner_hint'),
 									control: bannerSwitch,
 									tall: true
 								})}
-								{/if}
 								{#if betaAvailable}
 									{@render row({
 										title: t('settings.about.beta'),

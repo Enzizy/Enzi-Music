@@ -331,7 +331,9 @@
 	{#if updateState.available}
 		<div
 			transition:fly={{ y: 16, duration: 220, easing: cubicOut }}
-			class="pointer-events-auto fixed bottom-24 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
+			class="pointer-events-auto fixed left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg {mobile
+				? 'bottom-36 w-[calc(100%-2rem)] justify-between'
+				: 'bottom-24'}"
 		>
 			<span>{availableMessage(updateState.available)}</span>
 			{#if updateState.canInstall}
@@ -340,8 +342,11 @@
 				</Button>
 			{:else}
 				<!-- Packaged build (.rpm, AUR): the updater can only rewrite an AppImage, so send them
-				     to the releases page and let their package manager do it. -->
-				<Button size="sm" onclick={openDownloadPage}>{t('settings.about.download_page')}</Button>
+				     to the releases page and let their package manager do it. Android downloads the
+				     new APK, which the phone then installs over this one. -->
+				<Button size="sm" onclick={openDownloadPage}
+					>{mobile ? t('settings.about.download_apk') : t('settings.about.download_page')}</Button
+				>
 			{/if}
 			{#if !updateState.installing}
 				<Button

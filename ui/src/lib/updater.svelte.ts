@@ -10,8 +10,12 @@ import { friendlyNetError } from './neterr';
 import { canSelfUpdate, checkBetaUpdate, getSettings, openExternal, releaseNotes } from './api';
 import { isNewer, isPrerelease } from './version';
 import { getVersion } from '@tauri-apps/api/app';
+import { mobile } from './mobile';
 
 const RELEASES_URL = 'https://github.com/Enzizy/Enzi-Music/releases/latest';
+/** The APK a release carries, named the way the release workflow names it. */
+const apkUrl = (version: string) =>
+	`https://github.com/Enzizy/Enzi-Music/releases/download/v${version}/Enzi-Music_${version}_arm64.apk`;
 
 /** How often the quiet check repeats while the app stays open. */
 export const QUIET_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -32,6 +36,15 @@ async function look(): Promise<boolean> {
 	let u: Update | null;
 	const beta = (await getSettings()).update_channel === 'beta';
 	const current = await getVersion();
+	// Android has no updater plugin and can't replace itself: find the newest release and offer its
+	// APK, which the phone installs over this one. Newer only, since an APK can't be downgraded.
+	if (mobile) {
+		const latest = (await releaseNotes())[0]?.version;
+		if (!latest || !isNewer(latest, current)) return false;
+		updateState.canInstall = false;
+		updateState.available = { version: latest, rollback: false };
+		return true;
+	}
 	try {
 		if (beta) {
 			// The beta pointer, through the same plugin: see `check_beta_update` in commands.rs.
@@ -148,7 +161,8 @@ export async function checkForUpdatesInteractive(): Promise<{ message: string; e
 /** Send a packaged build to the releases page. Their package manager does the actual updating; all
  *  the app can do is say a new version exists and get out of the way. */
 export function openDownloadPage() {
-	openExternal(RELEASES_URL).catch((e) => toast.error(t('toasts.browser_failed', { error: String(e) })));
+	const a = updateState.available;
+	openExternal(mobile && a && !a.rollback ? apkUrl(a.version) : RELEASES_URL).catch((e) => toast.error(t('toasts.browser_failed', { error: String(e) })));
 }
 
 /** Download + install the pending update, then relaunch into the new version. */
