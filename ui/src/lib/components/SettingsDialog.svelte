@@ -11,7 +11,6 @@
 		KeyboardIcon,
 		Cancel01Icon as RemoveIcon,
 		Copy01Icon,
-		DiscordIcon,
 		Alert02Icon,
 		LinkSquare02Icon
 	} from '@hugeicons/core-free-icons';
@@ -29,7 +28,6 @@
 	import { win } from '$lib/win.svelte';
 	import AppearanceSettings from '$lib/components/AppearanceSettings.svelte';
 	import Changelog from '$lib/components/Changelog.svelte';
-	import DiscordSettings from '$lib/components/DiscordSettings.svelte';
 	import {
 		updateState,
 		availableMessage,
@@ -54,7 +52,6 @@
 		| 'themes'
 		| 'playback'
 		| 'hotkeys'
-		| 'discord'
 		| 'data'
 		| 'about';
 	type Tab = { id: TabId; label: string; hint: string; icon: typeof Settings02Icon };
@@ -63,11 +60,10 @@
 		{ id: 'themes', label: t('settings.tabs.themes'), hint: t('settings.tabs.themes_hint'), icon: PaintBoardIcon },
 		{ id: 'playback', label: t('settings.tabs.playback'), hint: t('settings.tabs.playback_hint'), icon: PlayCircleIcon },
 		{ id: 'hotkeys', label: t('settings.tabs.hotkeys'), hint: t('settings.tabs.hotkeys_hint'), icon: KeyboardIcon },
-		{ id: 'discord', label: t('settings.tabs.discord'), hint: t('settings.tabs.discord_hint'), icon: DiscordIcon },
 		{ id: 'data', label: t('settings.tabs.data'), hint: t('settings.tabs.data_hint'), icon: Database02Icon },
 		{ id: 'about', label: t('settings.tabs.about'), hint: t('settings.tabs.about_hint'), icon: InformationCircleIcon }
-	// Android has no global hotkeys and no Discord client to show a status in.
-	] as Tab[]).filter((tb) => !mobile || (tb.id !== 'hotkeys' && tb.id !== 'discord')));
+	// Android has no global hotkeys.
+	] as Tab[]).filter((tb) => !mobile || tb.id !== 'hotkeys'));
 
 	// Shared shapes for the settings rows. Kept as strings so the markup below stays readable and
 	// every group looks identical without a wrapper component per row.
@@ -464,15 +460,15 @@
 {/snippet}
 
 <Dialog.Root bind:open={ui.settingsOpen}>
-	<!-- The Discord and Appearance tabs put their live preview *beside* the controls rather than
-	     under them, so they need the extra width; every other tab reads better narrow. Deliberately not animated:
+	<!-- The Appearance tab puts its live preview *beside* the controls rather than
+	     under them, so it needs the extra width; every other tab reads better narrow. Deliberately not animated:
 	     transitioning the width relayouts the whole modal every frame, and WebKitGTK is the webview
 	     that would pay for it. -->
 	<!-- A phone gets the whole screen, with the tab rail as a row across the top. -->
 	<Dialog.Content
 		class="gap-0 overflow-hidden p-0 {mobile
 			? 'h-dvh max-h-none w-screen max-w-none rounded-none sm:max-w-none'
-			: tab === 'discord' || tab === 'themes'
+			: tab === 'themes'
 				? 'sm:max-w-5xl'
 				: tab === 'hotkeys'
 					? 'sm:max-w-4xl'
@@ -528,9 +524,7 @@
 					<p class="truncate text-xs text-muted-foreground">{currentTab.hint}</p>
 				</header>
 
-				{#if loaded && tab === 'discord'}
-					<DiscordSettings {settings} />
-				{:else if tab === 'themes'}
+				{#if tab === 'themes'}
 					<AppearanceSettings />
 				{:else}
 				<!-- relative: an absolute child (the lyrics sources' sr-only live region) would otherwise

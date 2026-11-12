@@ -39,7 +39,7 @@ export type ThemeId =
 type Theme = { id: ThemeId; label: string; color: string };
 
 export const THEMES: Theme[] = [
-	{ id: 'default', label: 'Default', color: 'oklch(0.514 0.222 16.935)' },
+	{ id: 'default', label: 'Monochrome', color: 'oklch(0.708 0 0)' },
 	{ id: 'catppuccin', label: 'Catppuccin', color: 'oklch(0.5547 0.2503 297.0156)' },
 	{ id: 'tokyonight', label: 'Tokyo Night', color: 'oklch(0.3593 0.0513 273.1802)' },
 	{ id: 'caffeine', label: 'Caffeine', color: 'oklch(0.4341 0.0392 41.9938)' },
@@ -92,7 +92,7 @@ const TINT_CLASS = 'art-tint';
 const MATUGEN_STYLE_ID = 'enzi-music-matugen';
 const ACCENT_VARS = ['--primary', '--primary-foreground', '--accent', '--accent-foreground'];
 const M3_SEED_VARS = ['--m3-seed-h', '--m3-c'];
-const CUSTOM_VARS = ['--hue', '--radius', '--font-sans', '--font-heading'];
+const CUSTOM_VARS = ['--hue', '--tint', '--radius', '--font-sans', '--font-heading'];
 // Same two neutrals the preset accent themes pick between.
 const ON_DARK = 'oklch(0.985 0 0)';
 const ON_LIGHT = 'oklch(0.205 0 0)';
@@ -268,6 +268,7 @@ function apply(): void {
 	if (art) setArtVars(art);
 	if (custom.hue !== null && !(art && theme.id === 'material')) {
 		root.style.setProperty('--hue', String(custom.hue));
+		root.style.setProperty('--tint', '1');
 	}
 	if (custom.radius !== null) root.style.setProperty('--radius', `${custom.radius}rem`);
 	if (custom.fontSans) root.style.setProperty('--font-sans', custom.fontSans);

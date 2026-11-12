@@ -94,8 +94,8 @@
 		commitTimer = setTimeout(() => commit(patch), 150);
 	}
 
-	// The playing track when there is one, so the preview is your app and not a sample of it. Same
-	// stand-in as the Discord tab's preview otherwise. The 120px cover is the one the player bar has
+	// The playing track when there is one, so the preview is your app and not a sample of it. A stand-in
+	// otherwise. The 120px cover is the one the player bar has
 	// already loaded.
 	const hour = new Date().getHours();
 	const daypart: TranslationKey =
@@ -256,7 +256,7 @@
 	}
 </script>
 
-<!-- Same row as the Discord tab: the description runs the full width under the title and control,
+<!-- The description runs the full width under the title and control,
      because this column shares the dialog with the preview. -->
 {#snippet row(o: {
 	title: string;

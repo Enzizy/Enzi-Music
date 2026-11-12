@@ -56,9 +56,6 @@ export const np = $state({ open: false, tab: 'queue' as 'queue' | 'lyrics' | 'co
  */
 export const prefs = $state({
 	musicVideos: false,
-	/** `discord_rpc`. Two places toggle it (the titlebar button and the Discord settings tab) and
-	 *  each drew its own indicator, so turning it off in one left the other stale. One owner. */
-	discordRpc: false,
 	/** Linux: mpv draws the music video under the page (nativevideo.rs) instead of a `<video>`
 	 *  element. Cleared if it turns out there is no GL surface, which hands the picture back. */
 	nativeVideo: false,
@@ -1654,7 +1651,6 @@ export function initApp(mini = false): () => void {
 			prefs.musicVideos = s.music_videos === 'true';
 			prefs.nativeVideo = s.native_video === 'true';
 			prefs.ambient = s.ambient_light === 'true';
-			prefs.discordRpc = s.discord_rpc === 'true';
 			prefs.autoplay = s.autoplay !== 'false';
 			// Half of what the app shows is YouTube's own text, and Rust asks for it in the language
 			// this setting holds (#274). It reads the setting at startup, before the SPA exists to

@@ -50,8 +50,8 @@ tauri-plugin-dialog = "2.7.2"
 tauri-plugin-clipboard-manager = "2.3.2"
 # Track-change notifications (notify.rs): D-Bus on Linux, WinRT toasts, NSUserNotification.
 
-# Desktop only. Android has no tray, global hotkeys, updater or second instance, Discord and the
-# OS media controls go through Android's own APIs, and V8 (BotGuard's engine) has no Android build.
+# Desktop only. Android has no tray, global hotkeys, updater or second instance, the OS media
+# controls go through Android's own APIs, and V8 (BotGuard's engine) has no Android build.
 [target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
@@ -59,7 +59,6 @@ tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 rustypipe-botguard = "0.1.2"
 souvlaki = { version = "0.8.3", default-features = false, features = ["use_zbus"] }
-discord-rich-presence = "1.1.0"
 tauri-plugin-window-state = "2.4.1"
 notify-rust = "4"
 

@@ -19,7 +19,7 @@ class MainActivity : TauriActivity() {
     )
     super.onCreate(savedInstanceState)
     val root = findViewById<View>(android.R.id.content)
-    root.setBackgroundColor(Color.rgb(20, 16, 20))
+    root.setBackgroundColor(Color.rgb(10, 10, 10))
     ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
       val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
       val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())

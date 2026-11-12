@@ -43,7 +43,7 @@ class LoginActivity : Activity() {
                 if (Uri.parse(url).host == "music.youtube.com") capture(0)
             }
         }
-        web.setBackgroundColor(Color.rgb(20, 16, 20))
+        web.setBackgroundColor(Color.rgb(10, 10, 10))
         setContentView(web)
         // Android 15 and up draw under the system bars; keep the page clear of them and the keyboard.
         ViewCompat.setOnApplyWindowInsetsListener(web) { view, insets ->

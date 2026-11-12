@@ -242,15 +242,13 @@ pub async fn get_queue(state: St<'_>) -> Result<serde_json::Value, String> {
 /// `visitor_data`) and internal blobs (`queue_json`, `queue_index`, `queue_position`) never cross
 /// into the webview: they'd otherwise ship the login credential to the renderer on every open, and
 /// the webview can't overwrite them either.
-const UI_SETTINGS: [&str; 30] = [
+const UI_SETTINGS: [&str; 28] = [
     "volume",
     "proxy",
     "quality",
     "normalize_volume",
     "enable_history",
     "disabled_stream_clients",
-    "discord_rpc",
-    "discord_rpc_config",
     "close_to_tray",
     "track_notifications",
     "track_notifications_focused",
@@ -447,16 +445,6 @@ pub async fn set_setting(
     #[cfg(target_os = "linux")]
     if key == "ambient_light" {
         crate::set_webgl(&app, value == "true");
-    }
-    // Presence connects/clears the moment it's toggled — the user shouldn't have to skip a track
-    // to see it take effect.
-    if key == "discord_rpc" {
-        state.set_discord_enabled(value == "true");
-    }
-    // Same reasoning for the card layout: the settings tab previews it live, so the real card has
-    // to follow without waiting for the next track.
-    if key == "discord_rpc_config" {
-        state.set_discord_config(&value);
     }
     // Retune the track that's playing. Unlike crossfade below, this one has to apply to what the
     // user is hearing right now: the switch exists so they can A/B the same loud section (#298).

@@ -7,8 +7,6 @@ mod cipher;
 mod commands;
 mod db;
 mod diagnostics;
-#[cfg_attr(target_os = "android", path = "android/discord.rs")]
-mod discord;
 mod hotkeys;
 mod http;
 #[cfg(target_os = "linux")]
@@ -904,12 +902,6 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             taskbar::init(&handle);
 
-            // Discord rich presence — off unless the user opted in; parks on its channel until then.
-            let discord = discord::spawn(
-                db.get_setting("discord_rpc").as_deref() == Some("true"),
-                discord::RpcConfig::parse(db.get_setting("discord_rpc_config").as_deref()),
-            );
-
             let app_state = Arc::new(AppState::new(
                 it,
                 clients,
@@ -919,7 +911,6 @@ pub fn run() {
                 orchestrator,
                 cache_dir.clone(),
                 media,
-                discord,
             ));
             app.manage(app_state.clone());
 
