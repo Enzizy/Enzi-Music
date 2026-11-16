@@ -31,7 +31,7 @@
 		FullScreenIcon,
 		GoBackward15SecIcon,
 		GoForward15SecIcon,
-		Mic01Icon,
+		QuoteDownIcon,
 		MinimizeScreenIcon,
 		MusicNote01Icon,
 		NextIcon,
@@ -963,7 +963,7 @@
 						? ''
 						: 'lg:flex'}"
 				>
-					{@render sideButton(Mic01Icon, t('player.lyrics'), lyricsShown, toggleLyrics)}
+					{@render sideButton(QuoteDownIcon, t('player.lyrics'), lyricsShown, toggleLyrics)}
 					{@render sideButton(Queue01Icon, t('player.queue'), queueShown, toggleQueue)}
 				</div>
 				<!-- svelte-ignore a11y_no_static_element_interactions -- wheel is the volume gesture -->
@@ -1041,7 +1041,7 @@
 	</button>
 {/snippet}
 
-{#snippet sideButton(icon: typeof Mic01Icon, label: string, on: boolean, toggle: () => void)}
+{#snippet sideButton(icon: typeof QuoteDownIcon, label: string, on: boolean, toggle: () => void)}
 	<button
 		type="button"
 		onclick={toggle}

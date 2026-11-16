@@ -49,6 +49,7 @@
 	     put the two layers a pixel apart at some offsets, and a row of the raw wash flickered under
 	     the fade's last line (perf/navprobe.py --hold --wheel: 8 of 20 captures). -->
 	<div
+		data-page-wash
 		class="art-wash pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem] overflow-hidden"
 		aria-hidden="true"
 	>

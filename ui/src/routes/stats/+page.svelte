@@ -213,6 +213,7 @@
 <div class="relative isolate">
 	<header class="relative">
 		<div
+			data-page-wash
 			class="art-wash pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] overflow-hidden"
 			aria-hidden="true"
 		>

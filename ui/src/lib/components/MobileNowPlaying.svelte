@@ -23,7 +23,7 @@
 		RepeatOne01Icon,
 		FavouriteIcon,
 		Queue01Icon,
-		Mic01Icon,
+		QuoteDownIcon,
 		MusicNote01Icon
 	} from '@hugeicons/core-free-icons';
 	import * as api from '$lib/api';
@@ -239,7 +239,7 @@
 					class="flex items-center gap-2 rounded-full bg-card/70 px-5 py-2.5 text-sm font-medium"
 					onclick={() => openSheet('lyrics')}
 				>
-					<HugeiconsIcon icon={Mic01Icon} class="h-4 w-4" />
+					<HugeiconsIcon icon={QuoteDownIcon} class="h-4 w-4" />
 					{t('player.lyrics')}
 				</button>
 				<button

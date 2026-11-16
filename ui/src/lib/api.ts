@@ -486,6 +486,10 @@ export const clearCaches = () => invoke<void>('clear_caches');
 export const setAppIcon = (path: string | null) => invoke<void>('set_app_icon', { path });
 /** Path to the custom app icon, granted to the asset protocol. `null` when the bundled one is in use. */
 export const appIconPath = () => invoke<string | null>('app_icon_path');
+/** Store the window background picture (raw image bytes); an empty array removes it. */
+export const setBackgroundImage = (bytes: Uint8Array) => invoke<void>('set_background_image', bytes);
+/** The stored background picture's bytes; empty when there is none. */
+export const backgroundImage = () => invoke<ArrayBuffer>('background_image');
 
 /** Grant the webview a URL for one font file the user picked, so `@font-face` can load it. */
 export const allowFontFile = (path: string) => invoke<void>('allow_font_file', { path });

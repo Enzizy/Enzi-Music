@@ -62,6 +62,8 @@
 	import { initZoom } from '$lib/zoom.svelte';
 	import { initShortcuts } from '$lib/shortcuts';
 	import { initErrorLog } from '$lib/errlog';
+	import { background, initBackground } from '$lib/background.svelte';
+	import AppBackground from '$lib/components/AppBackground.svelte';
 	import {
 		updateState,
 		availableMessage,
@@ -160,6 +162,8 @@
 	if (browser) initTheme();
 	// The custom app icon (#173) is a file on disk, so the titlebar has to ask Rust for it.
 	if (browser) loadAppIcon();
+	// The background picture is a file too, and the mini player has no room to show one.
+	if (browser && !isMini) initBackground();
 
 	// Wire the Tauri event bridge once for the whole app; teardown on destroy. Check for an update
 	// on every app open (silent unless one exists).
@@ -223,8 +227,11 @@
 		data-video-hole={video.hole ? '' : undefined}
 		class="relative flex h-screen flex-col overflow-hidden text-foreground {video.hole
 			? ''
-			: 'bg-background'} {windowCorners()} {ui.theaterOpen && video.hole ? 'invisible' : ''}"
+			: 'bg-background'} {windowCorners()} {ui.theaterOpen && video.hole ? 'invisible' : ''} {background.src
+			? 'isolate'
+			: ''}"
 	>
+		<AppBackground />
 		{#if video.hole}
 			<!-- Linux: mpv draws the music video underneath the page (nativevideo.rs), so the page
 			     paints its background everywhere except the picture's box: a spread shadow, not a

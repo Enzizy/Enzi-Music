@@ -653,6 +653,56 @@ pub async fn app_icon_path(app: tauri::AppHandle) -> Result<Option<String>, Stri
     Ok(Some(p.to_string_lossy().into_owned()))
 }
 
+// --- background image -------------------------------------------------------------------------
+
+/// Where the custom window background lives. Copied in rather than referenced, like the app icon,
+/// so moving or deleting the original (or an Android content URI going stale) can't break it.
+fn background_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    use tauri::Manager;
+    app.path().app_data_dir().ok().map(|d| d.join("background.img"))
+}
+
+/// Store the background image. The body is the raw image bytes, already scaled down and
+/// re-encoded by the UI; an empty body removes it.
+#[tauri::command]
+pub async fn set_background_image(
+    app: tauri::AppHandle,
+    request: tauri::ipc::Request<'_>,
+) -> Result<(), String> {
+    let dest = background_path(&app).ok_or("no app data directory")?;
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("expected the image bytes".into());
+    };
+    if bytes.is_empty() {
+        return match std::fs::remove_file(&dest) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                Err(format!("couldn't remove the background: {e}"))
+            }
+            _ => Ok(()),
+        };
+    }
+    if bytes.len() > 20 * 1024 * 1024 {
+        return Err("that image is too big".into());
+    }
+    if let Some(dir) = dest.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("couldn't save the background: {e}"))?;
+    }
+    // Write beside it and rename over it, so a failed write never leaves half an image behind.
+    let tmp = dest.with_extension("img.tmp");
+    std::fs::write(&tmp, bytes).and_then(|_| std::fs::rename(&tmp, &dest)).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("couldn't save the background: {e}")
+    })
+}
+
+/// The stored background image's bytes, or an empty body when there is none. Raw bytes rather
+/// than a path, so the webview needs no asset-protocol grant for it on either platform.
+#[tauri::command]
+pub async fn background_image(app: tauri::AppHandle) -> tauri::ipc::Response {
+    let bytes = background_path(&app).and_then(|p| std::fs::read(p).ok()).unwrap_or_default();
+    tauri::ipc::Response::new(bytes)
+}
+
 /// Wipe both cache tiers (URL cache + mpv on-disk audio cache). context/14.
 #[tauri::command]
 pub async fn clear_caches(state: St<'_>) -> Result<(), String> {

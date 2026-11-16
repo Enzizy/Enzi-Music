@@ -27,6 +27,12 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Slider } from '$lib/components/ui/slider';
+	import {
+		background,
+		chooseBackground,
+		clearBackground,
+		setBackgroundLook
+	} from '$lib/background.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import * as Popover from '$lib/components/ui/popover';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
@@ -247,6 +253,38 @@
 		}
 	}
 
+	// --- Background picture --------------------------------------------------------------------
+	// A plain file input rather than the dialog plugin: the bytes are all we need, and it is the
+	// same picker on Windows and Android.
+	let bgInput = $state<HTMLInputElement>();
+	let bgBusy = $state(false);
+	// Dragging writes only here; the app takes the value when the pointer lets go (see the top).
+	let bgDraft = $state<{ dim?: number; blur?: number }>({});
+
+	async function onBackgroundPicked(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = ''; // so picking the same file again still fires
+		if (!file) return;
+		bgBusy = true;
+		try {
+			await chooseBackground(file);
+			toast.success(t('toasts.background_set'));
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : String(err));
+		} finally {
+			bgBusy = false;
+		}
+	}
+
+	async function removeBackground() {
+		try {
+			await clearBackground();
+		} catch (err) {
+			toast.error(String(err));
+		}
+	}
+
 	function resetAll() {
 		clearTimeout(commitTimer);
 		resetCustom();
@@ -367,6 +405,12 @@
 						})
 					})}
 				{/if}
+				{@render row({
+					title: t('settings.themes.background_image'),
+					desc: t('settings.themes.background_image_hint'),
+					control: backgroundButtons,
+					below: background.src ? backgroundLook : undefined
+				})}
 				{@render row({
 					title: t('settings.themes.artwork_accent'),
 					badge: t('settings.themes.experimental'),
@@ -783,6 +827,62 @@
 				</button>
 			</div>
 		{/each}
+	</div>
+{/snippet}
+
+{#snippet backgroundButtons()}
+	<div class="flex shrink-0 items-center gap-2">
+		<input bind:this={bgInput} type="file" accept="image/*" class="hidden" onchange={onBackgroundPicked} />
+		<Button variant="outline" size="sm" disabled={bgBusy} onclick={() => bgInput?.click()}>
+			{t('settings.themes.background_image_pick')}
+		</Button>
+		{#if background.src}
+			<Button variant="ghost" size="sm" onclick={removeBackground}>{t('common.remove')}</Button>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet backgroundLook()}
+	<div class="flex items-start gap-4">
+		<img src={background.src} alt="" class="h-16 w-28 shrink-0 rounded-md border object-cover" />
+		<div class="grid min-w-0 flex-1 gap-3">
+			<div class="grid gap-1.5">
+				<div class="flex justify-between text-xs text-muted-foreground">
+					<span>{t('settings.themes.background_dim')}</span>
+					<span class="tabular-nums">{bgDraft.dim ?? background.dim}%</span>
+				</div>
+				<Slider
+					type="single"
+					aria-label={t('settings.themes.background_dim')}
+					max={90}
+					step={1}
+					value={bgDraft.dim ?? background.dim}
+					onValueChange={(dim) => (bgDraft.dim = dim)}
+					onValueCommit={(dim) => {
+						setBackgroundLook({ dim });
+						bgDraft.dim = undefined;
+					}}
+				/>
+			</div>
+			<div class="grid gap-1.5">
+				<div class="flex justify-between text-xs text-muted-foreground">
+					<span>{t('settings.themes.background_blur')}</span>
+					<span class="tabular-nums">{bgDraft.blur ?? background.blur}px</span>
+				</div>
+				<Slider
+					type="single"
+					aria-label={t('settings.themes.background_blur')}
+					max={40}
+					step={1}
+					value={bgDraft.blur ?? background.blur}
+					onValueChange={(blur) => (bgDraft.blur = blur)}
+					onValueCommit={(blur) => {
+						setBackgroundLook({ blur });
+						bgDraft.blur = undefined;
+					}}
+				/>
+			</div>
+		</div>
 	</div>
 {/snippet}
 

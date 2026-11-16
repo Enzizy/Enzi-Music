@@ -1501,13 +1501,37 @@ input[type='range'].range:active::-webkit-slider-thumb {
    it was the heaviest line on home (#319). Still there for dragging, and the row still scrolls with
    a trackpad or shift+wheel when it is invisible. */
 .rail::-webkit-scrollbar {
-	height: 4px;
+	height: 10px;
 }
 .rail::-webkit-scrollbar-thumb {
 	background: transparent;
+	/* The border is transparent padding: the bar draws 6px tall but the whole 10px grabs it. */
+	border: 2px solid transparent;
+	background-clip: padding-box;
 }
 .rail:hover::-webkit-scrollbar-thumb {
-	background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+	background-color: color-mix(in srgb, var(--muted-foreground) 40%, transparent);
+}
+.rail::-webkit-scrollbar-thumb:hover,
+.rail::-webkit-scrollbar-thumb:active {
+	background-color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+	border-width: 1px;
+}
+
+/* A background picture (background.svelte.ts) shows through the shell's own surfaces. Only these:
+   panels that overlay a page (now playing, queue, dialogs) stay solid, or the page would show
+   through them. */
+html.bg-image [data-app-shell] :is([data-titlebar], [data-nav-rail], [data-player-bar], [data-bottom-nav]) {
+	background-color: color-mix(in oklab, var(--background) 60%, transparent);
+}
+/* The picture is the page's backdrop now: the cover glow behind home and stats fades into a solid
+   fill, which would box the top of the picture off. Pinned headers keep enough fill to read over
+   the rows scrolling under them. */
+html.bg-image [data-page-wash] {
+	display: none;
+}
+html.bg-image [data-app-main] .sticky.bg-background {
+	background-color: color-mix(in oklab, var(--background) 85%, transparent);
 }
 
 /* Respect users who ask the OS to minimise motion. */

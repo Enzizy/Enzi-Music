@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { HugeiconsIcon } from '@hugeicons/svelte';
+	import Tip from './Tip.svelte';
 	import {
 		PreviousIcon,
 		NextIcon,
@@ -10,7 +11,7 @@
 		RepeatOne01Icon,
 		Queue01Icon,
 		Comment01Icon,
-		Mic01Icon,
+		QuoteDownIcon,
 		VolumeHighIcon,
 		VolumeMute02Icon,
 		FavouriteIcon,
@@ -411,21 +412,26 @@
 	<div class="flex flex-1 items-center justify-end gap-2">
 		<!-- Volume is the first control to drop on a narrow window (OS volume still works). -->
 		<div class="hidden items-center gap-1 md:flex">
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				class="text-muted-foreground"
-				onclick={toggleMute}
-				aria-label={playback.volume === 0 ? t('player.unmute') : t('player.mute')}
-			>
-				<!-- icon swap via altIcon/showAlt — `icon` is frozen at mount (see play/pause above) -->
-				<HugeiconsIcon
-					icon={VolumeHighIcon}
-					altIcon={VolumeMute02Icon}
-					showAlt={playback.volume === 0}
-					class="h-4 w-4"
-				/>
-			</Button>
+			<Tip label={playback.volume === 0 ? t('player.unmute') : t('player.mute')}>
+				{#snippet trigger(props)}
+					<Button
+						{...props}
+						variant="ghost"
+						size="icon-sm"
+						class="text-muted-foreground"
+						onclick={toggleMute}
+						aria-label={playback.volume === 0 ? t('player.unmute') : t('player.mute')}
+					>
+						<!-- icon swap via altIcon/showAlt — `icon` is frozen at mount (see play/pause above) -->
+						<HugeiconsIcon
+							icon={VolumeHighIcon}
+							altIcon={VolumeMute02Icon}
+							showAlt={playback.volume === 0}
+							class="h-4 w-4"
+						/>
+					</Button>
+				{/snippet}
+			</Tip>
 			<input
 				type="range"
 				class="range w-24"
@@ -441,62 +447,87 @@
 		</div>
 		<!-- One cluster, so they sit tighter to each other than to the volume slider. -->
 		<div class="flex items-center gap-0.5">
-			<Button
-				variant={ui.tempoPitchOpen ? 'secondary' : 'ghost'}
-				size="icon-sm"
-				onclick={() => (ui.tempoPitchOpen = !ui.tempoPitchOpen)}
-				aria-label={t('dialogs.tempo_pitch.title')}
-				aria-expanded={ui.tempoPitchOpen}
-			>
-				<HugeiconsIcon
-					icon={PreferenceVerticalIcon}
-					class="h-5 w-5 {effectsOn ? 'text-primary' : ''}"
-				/>
-			</Button>
-			<Button
-				variant={lyricsOpen ? 'secondary' : 'ghost'}
-				size="icon-sm"
-				onclick={onToggleLyrics}
-				aria-label={t('player.lyrics')}
-			>
-				<HugeiconsIcon icon={Mic01Icon} class="h-5 w-5" />
-			</Button>
+			<Tip label={t('dialogs.tempo_pitch.title')}>
+				{#snippet trigger(props)}
+					<Button
+						{...props}
+						variant={ui.tempoPitchOpen ? 'secondary' : 'ghost'}
+						size="icon-sm"
+						onclick={() => (ui.tempoPitchOpen = !ui.tempoPitchOpen)}
+						aria-label={t('dialogs.tempo_pitch.title')}
+						aria-expanded={ui.tempoPitchOpen}
+					>
+						<HugeiconsIcon
+							icon={PreferenceVerticalIcon}
+							class="h-5 w-5 {effectsOn ? 'text-primary' : ''}"
+						/>
+					</Button>
+				{/snippet}
+			</Tip>
+			<Tip label={t('player.lyrics')}>
+				{#snippet trigger(props)}
+					<Button
+						{...props}
+						variant={lyricsOpen ? 'secondary' : 'ghost'}
+						size="icon-sm"
+						onclick={onToggleLyrics}
+						aria-label={t('player.lyrics')}
+					>
+						<HugeiconsIcon icon={QuoteDownIcon} class="h-5 w-5" />
+					</Button>
+				{/snippet}
+			</Tip>
 			<!-- A local file has no YouTube comment thread to open. -->
 			{#if playback.now && !api.isLocalId(playback.now.videoId)}
-				<Button
-					variant={commentsOpen ? 'secondary' : 'ghost'}
-					size="icon-sm"
-					onclick={onToggleComments}
-					aria-label={t('player.comments')}
-				>
-					<HugeiconsIcon icon={Comment01Icon} class="h-5 w-5" />
-				</Button>
+				<Tip label={t('player.comments')}>
+					{#snippet trigger(props)}
+						<Button
+							{...props}
+							variant={commentsOpen ? 'secondary' : 'ghost'}
+							size="icon-sm"
+							onclick={onToggleComments}
+							aria-label={t('player.comments')}
+						>
+							<HugeiconsIcon icon={Comment01Icon} class="h-5 w-5" />
+						</Button>
+					{/snippet}
+				</Tip>
 			{/if}
-			<Button
-				variant={queueOpen ? 'secondary' : 'ghost'}
-				size="icon-sm"
-				onclick={onToggleQueue}
-				aria-label={t('player.queue')}
-			>
-				<HugeiconsIcon icon={Queue01Icon} class="h-5 w-5" />
-			</Button>
+			<Tip label={t('player.queue')}>
+				{#snippet trigger(props)}
+					<Button
+						{...props}
+						variant={queueOpen ? 'secondary' : 'ghost'}
+						size="icon-sm"
+						onclick={onToggleQueue}
+						aria-label={t('player.queue')}
+					>
+						<HugeiconsIcon icon={Queue01Icon} class="h-5 w-5" />
+					</Button>
+				{/snippet}
+			</Tip>
 			<!-- The keyboard (and discoverable) way in and out of the now-playing view; clicking the
 			     bar's empty space does the same thing. -->
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				onclick={() => (np.open = !np.open)}
-				aria-label={np.open ? t('player.minimize_player') : t('player.open_player')}
-				aria-expanded={np.open}
-			>
-				<!-- icon swap via altIcon/showAlt — `icon` is frozen at mount (see play/pause above) -->
-				<HugeiconsIcon
-					icon={ArrowUp01Icon}
-					altIcon={ArrowDown01Icon}
-					showAlt={np.open}
-					class="h-5 w-5"
-				/>
-			</Button>
+			<Tip label={np.open ? t('player.minimize_player') : t('player.open_player')}>
+				{#snippet trigger(props)}
+					<Button
+						{...props}
+						variant="ghost"
+						size="icon-sm"
+						onclick={() => (np.open = !np.open)}
+						aria-label={np.open ? t('player.minimize_player') : t('player.open_player')}
+						aria-expanded={np.open}
+					>
+						<!-- icon swap via altIcon/showAlt — `icon` is frozen at mount (see play/pause above) -->
+						<HugeiconsIcon
+							icon={ArrowUp01Icon}
+							altIcon={ArrowDown01Icon}
+							showAlt={np.open}
+							class="h-5 w-5"
+						/>
+					</Button>
+				{/snippet}
+			</Tip>
 		</div>
 	</div>
 </footer>

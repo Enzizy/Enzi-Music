@@ -57,6 +57,7 @@ if (
 	new URLSearchParams(location.search).has('mock')
 ) {
 	mockWindows('main');
+	let mockBackground = new ArrayBuffer(0);
 	mockIPC(
 		(cmd, args) => {
 			switch (cmd) {
@@ -86,6 +87,11 @@ if (
 				case 'prev_track':
 					play(current - 1);
 					return null;
+				case 'set_background_image':
+					mockBackground = (args as unknown as Uint8Array).slice().buffer;
+					return null;
+				case 'background_image':
+					return mockBackground;
 				default:
 					return null;
 			}

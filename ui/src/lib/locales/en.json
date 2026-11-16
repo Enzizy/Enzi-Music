@@ -482,6 +482,11 @@
 			"load_font_file": "Load font from file",
 			"primary_color": "Primary Accent",
 			"background_color": "Background",
+			"background_image": "Background image",
+			"background_image_hint": "A picture of your own behind the whole app. The titlebar, sidebar and player bar turn see-through over it.",
+			"background_image_pick": "Choose…",
+			"background_dim": "Dim",
+			"background_blur": "Blur",
 			"your_fonts": "Your fonts",
 			"custom_font": "Custom…",
 			"font_placeholder": "Font installed on this computer, e.g. Inter",
@@ -1066,6 +1071,7 @@
 		"subscribed": "Subscribed to {name}",
 		"unsubscribed": "Unsubscribed",
 		"signed_in_as": "Signed in as {name}",
-		"switched_to": "Switched to {name}"
+		"switched_to": "Switched to {name}",
+		"background_set": "Background image set"
 	}
 }

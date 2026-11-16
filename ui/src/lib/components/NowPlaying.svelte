@@ -10,7 +10,7 @@
 		Maximize01Icon,
 		Minimize01Icon,
 		FullScreenIcon,
-		Mic01Icon,
+		QuoteDownIcon,
 		MusicNote01Icon,
 		PlayIcon,
 		PauseIcon,
@@ -394,7 +394,7 @@
 						{t('player.queue')}
 					</Tabs.Trigger>
 					<Tabs.Trigger value="lyrics" class={stage ? 'flex-none gap-2 px-0.5' : 'gap-2.5'}>
-						<HugeiconsIcon icon={Mic01Icon} class="h-4 w-4" />
+						<HugeiconsIcon icon={QuoteDownIcon} class="h-4 w-4" />
 						{t('player.lyrics')}
 					</Tabs.Trigger>
 					{#if !api.isLocalId(playback.now?.videoId)}

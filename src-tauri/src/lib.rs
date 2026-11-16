@@ -1185,6 +1185,8 @@ pub fn run() {
             commands::clear_caches,
             commands::set_app_icon,
             commands::app_icon_path,
+            commands::set_background_image,
+            commands::background_image,
             commands::get_account,
             commands::get_account_identities,
             commands::switch_account,

@@ -23,7 +23,7 @@
 		ThumbsDownIcon,
 		MusicNote01Icon,
 		MaximizeScreenIcon,
-		Mic01Icon,
+		QuoteDownIcon,
 		VolumeHighIcon,
 		VolumeMute02Icon,
 		MinimizeIcon,
@@ -503,7 +503,7 @@
 					aria-label={tab === 'lyrics' ? t('player.queue') : t('player.lyrics')}
 					aria-pressed={tab === 'lyrics'}
 				>
-					<HugeiconsIcon icon={Mic01Icon} class="h-4 w-4" />
+					<HugeiconsIcon icon={QuoteDownIcon} class="h-4 w-4" />
 				</button>
 			</div>
 		</div>
