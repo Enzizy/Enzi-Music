@@ -31,6 +31,7 @@ export const playback = $state({
 	positionAt: 0,
 	duration: 0,
 	volume: 100,
+	castTarget: null as api.CastTarget | null,
 	// Session effects, seeded from the backend and mirrored between windows. Never persisted.
 	speed: 1,
 	semitones: 0,
@@ -893,7 +894,7 @@ export function commitVolume(v: number) {
 	api.setVolume(v);
 	// Persisted here rather than in Rust's `set_volume`: a drag calls that once per frame and every
 	// settings write is an fsync. A commit is one per gesture, and it's the level to reopen at.
-	api.setSetting('volume', String(v)).catch(() => {});
+	if (!playback.castTarget) api.setSetting('volume', String(v)).catch(() => {});
 }
 
 /**
@@ -1522,7 +1523,12 @@ export function initApp(mini = false): () => void {
 	if (started) return () => {};
 	started = true;
 	let receivedEffects = false;
+	let receivedCastTarget = false;
 	const subs = [
+		api.onCastTarget((target) => {
+			receivedCastTarget = true;
+			playback.castTarget = target;
+		}),
 		api.onPlaybackParams((p) => {
 			receivedEffects = true;
 			Object.assign(playback, p);
@@ -1624,6 +1630,9 @@ export function initApp(mini = false): () => void {
 		api.onLoginDone(() => toast.success(t('toasts.signed_in')))
 	];
 	const teardown = () => subs.forEach((u) => u.then((f) => f()));
+	api.getCastTarget().then((target) => {
+		if (!receivedCastTarget) playback.castTarget = target;
+	}).catch(() => {});
 	api.getQueue()
 		.then((q) => (playback.queue = q))
 		.catch(() => {});

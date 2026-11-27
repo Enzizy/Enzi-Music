@@ -38,6 +38,8 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
+oxicast = "=0.0.5"
+tokio-util = { version = "0.7", features = ["io"] }
 
 innertube = { path = "../crates/innertube" }
 player = { path = "../crates/player" }

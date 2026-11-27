@@ -210,7 +210,7 @@ pub async fn seek(state: St<'_>, position: f64) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn set_volume(state: St<'_>, volume: i64) -> Result<(), String> {
-    state.player.set_volume(volume).map_err(|e| e.to_string())?;
+    state.set_output_volume(volume).await?;
     if volume > 0 {
         crate::hotkeys::LAST_NONZERO_VOLUME.store(volume, std::sync::atomic::Ordering::Relaxed);
     }
@@ -218,6 +218,27 @@ pub async fn set_volume(state: St<'_>, volume: i64) -> Result<(), String> {
     // that didn't move the slider keeps showing the old level and lies about what you're hearing.
     let _ = state.app.emit("volume", volume);
     state.media_set_volume(volume);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cast_devices(state: St<'_>) -> Result<Vec<crate::cast::CastTarget>, String> {
+    state.cast.discover(&state.app).await
+}
+
+#[tauri::command]
+pub async fn cast_target(state: St<'_>) -> Result<Option<crate::cast::CastTarget>, String> {
+    Ok(state.cast.session().map(|session| session.target.clone()))
+}
+
+#[tauri::command]
+pub async fn cast_connect(state: St<'_>, id: String) -> Result<(), String> {
+    state.inner().clone().start_cast(&id).await
+}
+
+#[tauri::command]
+pub async fn cast_disconnect(state: St<'_>) -> Result<(), String> {
+    state.inner().clone().stop_cast().await;
     Ok(())
 }
 

@@ -20,6 +20,15 @@ static APP: OnceLock<AppHandle> = OnceLock::new();
 
 struct Session(PluginHandle<Wry>);
 
+pub(crate) fn cast_discovery(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let session = app.try_state::<Session>().ok_or("Android media plugin is unavailable")?;
+    session
+        .0
+        .run_mobile_plugin::<serde_json::Value>("castDiscovery", json!({ "enabled": enabled }))
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 /// The plugin that carries updates to Kotlin. Registered on the builder, before setup runs.
 pub fn init() -> TauriPlugin<Wry> {
     Builder::new("media-session")
@@ -153,12 +162,12 @@ pub extern "system" fn Java_com_enzi_music_MediaBridge_onAction(
         match action.as_str() {
             "play" => state.resume_or_toggle().await,
             "pause" | "stop" => {
-                let _ = state.player.pause();
+                let _ = state.set_paused(true).await;
             }
             "next" => state.next_in_queue().await,
             "previous" => state.prev_in_queue().await,
             "seek" => {
-                let _ = state.player.seek(value * state.player.speed());
+                let _ = state.user_seek(value * state.output_speed()).await;
             }
             other => tracing::warn!(action = other, "unknown media action"),
         }

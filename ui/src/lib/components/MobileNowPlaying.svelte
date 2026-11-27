@@ -31,6 +31,7 @@
 	import { thumb } from '$lib/thumb';
 	import { t } from '$lib/i18n.svelte';
 	import M3SeekWave from './M3SeekWave.svelte';
+	import CastButton from './CastButton.svelte';
 	import QueueList from './QueueList.svelte';
 	import LyricsView from './LyricsView.svelte';
 
@@ -128,7 +129,7 @@
 					<div class="text-sm font-semibold">{t('player.now_playing')}</div>
 				{/if}
 			</div>
-			<div class="h-11 w-11"></div>
+			<CastButton mobile />
 		</header>
 
 		<div class="flex min-h-0 flex-1 flex-col justify-center gap-6 px-6 pb-4">

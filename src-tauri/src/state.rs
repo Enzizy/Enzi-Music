@@ -56,6 +56,7 @@ pub struct AppState {
     pub db: Arc<Db>,
     pub app: AppHandle,
     pub orchestrator: Arc<Orchestrator>,
+    pub cast: crate::cast::CastOutput,
     // Serialize effect commands, including requests already pending.
     playback_effects: Mutex<()>,
     /// mpv's on-disk audio cache dir (context/14) — wiped by the settings "Clear caches" action.
@@ -488,6 +489,7 @@ impl AppState {
             db,
             app,
             orchestrator,
+            cast: crate::cast::CastOutput::default(),
             cache_dir,
             media,
             queue: Mutex::new(QueueState::default()),
@@ -1753,6 +1755,14 @@ impl AppState {
     /// loaded but the queue is non-empty, load the current track (applying any resume position);
     /// otherwise just toggle mpv. Keeps the UI's single play/pause button working after a restart.
     pub async fn resume_or_toggle(self: &std::sync::Arc<Self>) {
+        if let Some(session) = self.cast.session() {
+            if session.has_media() {
+                if let Err(e) = self.set_paused(self.is_playing.load(Ordering::Relaxed)).await {
+                    self.emit_notice(&e);
+                }
+                return;
+            }
+        }
         if self.player.is_idle() {
             let (idx, has_items) = {
                 let q = self.queue.lock().await;
@@ -1764,6 +1774,249 @@ impl AppState {
             }
         }
         let _ = self.player.toggle();
+    }
+
+    pub async fn set_paused(&self, paused: bool) -> Result<(), String> {
+        if let Some(session) = self.cast.session() {
+            let result =
+                if paused { session.client.pause().await } else { session.client.play().await };
+            result.map(|_| ()).map_err(|e| e.to_string())
+        } else if paused {
+            self.player.pause().map_err(|e| e.to_string())
+        } else {
+            self.player.play().map_err(|e| e.to_string())
+        }
+    }
+
+    pub async fn set_output_volume(&self, volume: i64) -> Result<(), String> {
+        if let Some(session) = self.cast.session() {
+            let unmute = volume > 0
+                && session
+                    .client
+                    .watch_receiver_status()
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|status| status.volume.muted);
+            session
+                .client
+                .set_volume(volume.clamp(0, 100) as f32 / 100.0)
+                .await
+                .map_err(|e| e.to_string())?;
+            if unmute {
+                session.client.set_muted(false).await.map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        } else {
+            self.player.set_volume(volume).map_err(|e| e.to_string())
+        }
+    }
+
+    pub fn output_volume(&self) -> i64 {
+        if let Some(session) = self.cast.session() {
+            if let Some(status) = session.client.watch_receiver_status().borrow().as_ref() {
+                return if status.volume.muted {
+                    0
+                } else {
+                    (status.volume.level * 100.0).round() as i64
+                };
+            }
+        }
+        self.player.volume()
+    }
+
+    pub fn output_speed(&self) -> f64 {
+        if self.cast.session().is_some() {
+            1.0
+        } else {
+            self.player.speed()
+        }
+    }
+
+    pub async fn start_cast(self: &Arc<Self>, id: &str) -> Result<(), String> {
+        let change = self.cast.change.lock().await;
+        if self.cast.session().is_some() {
+            return Err("Disconnect from the current Cast device first.".into());
+        }
+        let session = self.cast.connect(id).await?;
+        let generation = self.generation.load(Ordering::SeqCst);
+        let item = self.current_item().await;
+        let playback = async {
+            if let Some(item) = item {
+                let data = self
+                    .resolve(&item.video_id, item.is_upload, row_secs(&item) as i64)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                session.load(&data, &item, self.current_position(), false).await?;
+            }
+            Ok::<(), String>(())
+        }
+        .await;
+        if let Err(error) = playback {
+            session.close(true).await;
+            return Err(error);
+        }
+        if self.generation.load(Ordering::SeqCst) != generation {
+            session.close(true).await;
+            return Err("The track changed while connecting. Try Cast again.".into());
+        }
+        let playing = self.is_playing.load(Ordering::Relaxed);
+        self.cast.set_session(session.clone());
+        let _ = self.player.stop();
+        self.queue.lock().await.lookahead_loaded = None;
+        let _ = self.app.emit("cast-target", &session.target);
+        let _ = self.app.emit(
+            "playback-params",
+            serde_json::json!({
+                "speed": 1.0, "semitones": 0, "reverb": player::Reverb::default(),
+            }),
+        );
+        self.media_set_playing(false);
+        let _ = self.app.emit("playback-state", "paused");
+        drop(change);
+        let state = self.clone();
+        let monitor = session.clone();
+        tauri::async_runtime::spawn(async move { state.watch_cast(monitor).await });
+        if playing && session.has_media() {
+            session.client.play().await.map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    pub async fn stop_cast(self: &Arc<Self>) {
+        let _change = self.cast.change.lock().await;
+        if let Some(session) = self.cast.session() {
+            self.close_cast(&session, true).await;
+        }
+    }
+
+    async fn close_cast(&self, session: &Arc<crate::cast::CastSession>, stop: bool) {
+        if !self.cast.remove(session) {
+            return;
+        }
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        if let Some(item) = self.current_item().await {
+            *self.pending_seek.lock().unwrap() = Some((item.video_id, self.current_position()));
+        }
+        self.media_set_playing(false);
+        self.flush_position();
+        let _ = self.app.emit("cast-target", Option::<crate::cast::CastTarget>::None);
+        let _ = self.app.emit("playback-state", "paused");
+        let _ = self.app.emit("volume", self.player.volume());
+        let (speed, semitones, reverb) = self.player.playback_params();
+        let _ = self.app.emit(
+            "playback-params",
+            serde_json::json!({
+                "speed": speed, "semitones": semitones, "reverb": reverb,
+            }),
+        );
+        session.close(stop).await;
+    }
+
+    async fn watch_cast(self: Arc<Self>, session: Arc<crate::cast::CastSession>) {
+        use oxicast::CastEvent;
+        let mut timer = tokio::time::interval(std::time::Duration::from_secs(1));
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            if !self.cast.session().is_some_and(|active| Arc::ptr_eq(&session, &active)) {
+                return;
+            }
+            tokio::select! {
+                _ = timer.tick(), if session.has_media() => {
+                    if let Ok(Some(status)) = session.client.media_status().await {
+                        self.cast_status(&session, status).await;
+                    }
+                }
+                event = session.client.next_event() => match event {
+                    Some(CastEvent::MediaStatusChanged(status)) => self.cast_status(&session, status).await,
+                    Some(CastEvent::MediaSessionEnded { media_session_id, idle_reason }) => {
+                        self.cast_track_ended(&session, media_session_id, Some(idle_reason)).await;
+                    }
+                    Some(CastEvent::ReceiverStatusChanged(status)) => {
+                        if !status.applications.iter().any(|app| app.session_id == session.application) {
+                            if let Ok(latest) = session.client.receiver_status().await {
+                                if !latest.applications.iter().any(|app| app.session_id == session.application) {
+                                    self.close_cast(&session, false).await;
+                                    return;
+                                }
+                            }
+                        }
+                        let volume = if status.volume.muted { 0 } else { (status.volume.level * 100.0).round() as i64 };
+                        let _ = self.app.emit("volume", volume);
+                    }
+                    Some(CastEvent::Disconnected(_)) | Some(CastEvent::HeartbeatTimeout) | None => {
+                        self.close_cast(&session, false).await;
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    async fn cast_status(
+        self: &Arc<Self>,
+        session: &crate::cast::CastSession,
+        status: oxicast::MediaStatus,
+    ) {
+        use oxicast::PlayerState;
+        if !session.owns(status.media_session_id) {
+            return;
+        }
+        if status.player_state == PlayerState::Idle {
+            self.cast_track_ended(session, status.media_session_id, status.idle_reason).await;
+            return;
+        }
+        if let Some(duration) = status.duration.filter(|d| d.is_finite() && *d > 0.0) {
+            if self.queue.lock().await.duration != duration {
+                self.on_duration(duration).await;
+                let _ = self.app.emit("duration", serde_json::json!({ "duration": duration }));
+            }
+        }
+        if status.current_time.is_finite() && status.current_time >= 0.0 {
+            self.on_position(status.current_time).await;
+            let _ =
+                self.app.emit("position", serde_json::json!({ "position": status.current_time }));
+        }
+        let playing = match status.player_state {
+            PlayerState::Playing => true,
+            PlayerState::Paused => false,
+            _ => return,
+        };
+        if self.is_playing.load(Ordering::Relaxed) != playing {
+            self.media_set_playing(playing);
+            let _ = self.app.emit("playback-state", if playing { "playing" } else { "paused" });
+            crate::tray::set_playing(&self.app, playing);
+            if !playing {
+                self.flush_position()
+            }
+        }
+    }
+
+    async fn cast_track_ended(
+        self: &Arc<Self>,
+        session: &crate::cast::CastSession,
+        id: i32,
+        reason: Option<oxicast::IdleReason>,
+    ) {
+        use oxicast::IdleReason;
+        if !session.finish(id) {
+            return;
+        }
+        self.media_set_playing(false);
+        let _ = self.app.emit("playback-state", "paused");
+        if reason == Some(IdleReason::Finished) {
+            let repeat = {
+                let queue = self.queue.lock().await;
+                (queue.repeat == RepeatMode::One).then_some(queue.current)
+            };
+            if let Some(index) = repeat {
+                self.play_index(index).await;
+            } else {
+                self.on_track_ended().await;
+            }
+        } else if reason == Some(IdleReason::Error) {
+            self.emit_notice("The Cast device could not play this track.");
+        }
     }
 
     /// Jump to a specific queue index.
@@ -2190,14 +2443,32 @@ impl AppState {
             .take()
             .filter(|(vid, _)| *vid == item.video_id)
             .map(|(_, pos)| pos);
-        let stream_url = mpv_stream_url(&data);
-        if let Err(e) =
-            self.player.load(&stream_url, &data.headers, self.track_gain(data.loudness_db), seek)
-        {
-            self.emit_error(&item.video_id, &e.to_string());
-            return false;
-        }
-        let _ = self.player.play();
+        let cast_session = self.cast.session();
+        let stream_url = if let Some(session) = &cast_session {
+            if let Err(error) = session.load(&data, &item, seek.unwrap_or(0.0), true).await {
+                if self.generation.load(Ordering::SeqCst) == gen {
+                    session.clear_media().await;
+                    self.media_set_playing(false);
+                    let _ = self.app.emit("playback-state", "paused");
+                    self.emit_error(&item.video_id, &error);
+                }
+                return false;
+            }
+            if self.generation.load(Ordering::SeqCst) != gen {
+                return false;
+            }
+            None
+        } else {
+            let url = mpv_stream_url(&data);
+            if let Err(e) =
+                self.player.load(&url, &data.headers, self.track_gain(data.loudness_db), seek)
+            {
+                self.emit_error(&item.video_id, &e.to_string());
+                return false;
+            }
+            let _ = self.player.play();
+            Some(url)
+        };
         // Items played from cards/radio can arrive without a duration; the player response knows
         // the exact length of the cut we stream. Backfill before emitting — lyrics matching keys
         // on it (a wrong-cut LRCLIB match plays lyrics seconds off the audio).
@@ -2208,7 +2479,9 @@ impl AppState {
             data.is_video,
             data.is_episode,
         );
-        self.attach_video(&item.video_id, item.is_video, &stream_url);
+        if let Some(url) = stream_url {
+            self.attach_video(&item.video_id, item.is_video, &url);
+        }
         {
             let mut q = self.queue.lock().await;
             q.current_client = Some(data.stream_client.clone());
@@ -2260,6 +2533,9 @@ impl AppState {
     /// waterfall fails again on the event pump (and used to wedge until a manual skip).
     /// ponytail: at most 3 removals per prime so a network outage can't eat the whole queue.
     async fn prime_lookahead(self: &std::sync::Arc<Self>, gen: u64) {
+        if self.cast.session().is_some() {
+            return;
+        }
         for _ in 0..3 {
             let next_idx = {
                 let q = self.queue.lock().await;
@@ -2433,6 +2709,7 @@ impl AppState {
     /// cold start both have to ask once instead of guessing.
     pub async fn playback_snapshot(&self) -> serde_json::Value {
         let (speed, semitones, reverb) = self.player.playback_params();
+        let casting = self.cast.session().is_some();
         let (duration, item) = {
             let q = self.queue.lock().await;
             (q.duration, q.items.get(q.current).cloned())
@@ -2443,10 +2720,10 @@ impl AppState {
             "position": self.current_position(),
             // 0 until mpv loads the file, which a restored track waits for until play (#502).
             "duration": if duration > 0.0 { duration } else { item.as_ref().map_or(0.0, row_secs) },
-            "volume": saved_volume(&self.db),
-            "speed": speed,
-            "semitones": semitones,
-            "reverb": reverb,
+            "volume": if casting { self.output_volume() } else { saved_volume(&self.db) },
+            "speed": if casting { 1.0 } else { speed },
+            "semitones": if casting { 0 } else { semitones },
+            "reverb": if casting { player::Reverb::default() } else { reverb },
         })
     }
 
@@ -2579,6 +2856,9 @@ impl AppState {
         semitones: i32,
         reverb: player::Reverb,
     ) -> Result<(), String> {
+        if self.cast.session().is_some() {
+            return Err("Tempo, pitch and reverb are available on local playback.".into());
+        }
         let _effects = self.playback_effects.lock().await;
         self.apply_playback_params(speed, semitones, reverb).await
     }
@@ -2603,7 +2883,7 @@ impl AppState {
     /// Tempo changes do not emit a new mpv duration; refresh the OS timeline immediately.
     pub async fn media_refresh_timing(&self) {
         let secs = self.queue.lock().await.duration;
-        let speed = self.player.speed();
+        let speed = self.output_speed();
         if let Some(m) = &self.media {
             if secs > 0.0 {
                 m.set_duration(secs, speed);
@@ -2620,7 +2900,7 @@ impl AppState {
             let pos = self.current_position();
             // Record what the controls now hold, or the next tick would repeat this very push.
             *self.last_media_state.lock().unwrap() = Some((playing, pos));
-            m.set_playback(playing, pos, self.player.speed());
+            m.set_playback(playing, pos, self.output_speed());
         }
         #[cfg(target_os = "windows")]
         crate::taskbar::set_playing(&self.app, playing);
@@ -2882,7 +3162,7 @@ impl AppState {
     pub async fn on_duration(&self, secs: f64) {
         if secs.is_finite() && secs > 0.0 {
             self.queue.lock().await.duration = secs;
-            let speed = self.player.speed();
+            let speed = self.output_speed();
             if let Some(m) = &self.media {
                 m.set_duration(secs, speed);
             }
@@ -3240,7 +3520,7 @@ impl AppState {
             // synchronous on mpv's core lock. `is_playing` is kept current by `PlayerEvent::Playing`,
             // which mpv now pushes (it derives from `idle-active`, not just `pause`).
             let playing = self.is_playing.load(Ordering::Relaxed);
-            let speed = self.player.speed();
+            let speed = self.output_speed();
             if let Some(m) = &self.media {
                 // Push when the play state flipped, or when the position moved further than one
                 // tick of ordinary playback explains (a seek, a track change). Not every second:
@@ -3333,6 +3613,9 @@ impl AppState {
 
     /// User seek from the UI.
     pub async fn user_seek(&self, position: f64) -> Result<(), String> {
+        if let Some(session) = self.cast.session().filter(|session| session.has_media()) {
+            return session.client.seek(position).await.map(|_| ()).map_err(|e| e.to_string());
+        }
         if self.player.is_idle() {
             // Nothing loaded to seek, as with a track restored at launch: move where it will
             // start instead, which an exit before play also saves (#502).
@@ -3747,7 +4030,6 @@ impl AppState {
         self.persist_queue().await;
         self.prime_lookahead(self.generation.load(Ordering::SeqCst)).await;
     }
-
 }
 
 /// Where an "Add to queue" lands: the tail of the queue, behind the rest of the album or playlist

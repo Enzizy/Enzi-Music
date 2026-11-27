@@ -45,6 +45,7 @@
 	import { thumb } from '$lib/thumb';
 	import { appearance } from '$lib/theme.svelte';
 	import ArtistLine from './ArtistLine.svelte';
+	import CastButton from './CastButton.svelte';
 	import M3SeekWave from './M3SeekWave.svelte';
 	import Marquee from './Marquee.svelte';
 	import SpeedPicker from './SpeedPicker.svelte';
@@ -447,12 +448,14 @@
 		</div>
 		<!-- One cluster, so they sit tighter to each other than to the volume slider. -->
 		<div class="flex items-center gap-0.5">
+			<CastButton />
 			<Tip label={t('dialogs.tempo_pitch.title')}>
 				{#snippet trigger(props)}
 					<Button
 						{...props}
 						variant={ui.tempoPitchOpen ? 'secondary' : 'ghost'}
 						size="icon-sm"
+						disabled={!!playback.castTarget}
 						onclick={() => (ui.tempoPitchOpen = !ui.tempoPitchOpen)}
 						aria-label={t('dialogs.tempo_pitch.title')}
 						aria-expanded={ui.tempoPitchOpen}

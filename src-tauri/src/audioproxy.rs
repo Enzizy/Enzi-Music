@@ -24,7 +24,8 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
 use std::io;
-use std::net::{Ipv4Addr, TcpListener};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -36,7 +37,9 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::{TokioIo, TokioTimer};
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio::sync::mpsc;
+use tokio_util::io::ReaderStream;
 
 /// Streamed, never buffered: only one upstream chunk lives in RAM at a time, so a two-hour mix
 /// costs the same few MB as a three-minute song.
@@ -213,7 +216,27 @@ async fn handle(req: Request<Incoming>) -> Result<Response<ProxyBody>, StatusCod
     .ok_or(StatusCode::NOT_FOUND)?;
 
     let meta = meta_for(&reg).await?;
+    range_response(req, meta, |start, end| async move { Ok(stream_chunks(reg, start, end)) }).await
+}
 
+fn stream_chunks(reg: Arc<Registration>, start: u64, end: u64) -> ProxyBody {
+    let (tx, rx) = mpsc::channel::<Result<Bytes, io::Error>>(16);
+    tauri::async_runtime::spawn(async move { pump_chunks(reg, start, end, tx).await });
+    let stream = futures_util::stream::unfold(rx, |mut rx| async move {
+        rx.recv().await.map(|item| (item.map(Frame::data), rx))
+    });
+    BodyExt::boxed(StreamBody::new(stream))
+}
+
+async fn range_response<F, Fut>(
+    req: Request<Incoming>,
+    meta: Meta,
+    open: F,
+) -> Result<Response<ProxyBody>, StatusCode>
+where
+    F: FnOnce(u64, u64) -> Fut,
+    Fut: std::future::Future<Output = Result<ProxyBody, StatusCode>>,
+{
     let want = parse_range(req.headers().get(header::RANGE).and_then(|v| v.to_str().ok()));
     let Some((start, end)) = resolve_window(want, meta.total) else {
         // The only malformed-but-well-formed case: a range that starts past the end of the file.
@@ -243,18 +266,158 @@ async fn handle(req: Request<Incoming>) -> Result<Response<ProxyBody>, StatusCod
     let body = if req.method() == Method::HEAD {
         Empty::<Bytes>::new().map_err(|e| match e {}).boxed()
     } else {
-        // Pull upstream in a task and hand the bytes over a bounded channel: the client body then
-        // holds only the receiver (Send + Sync, which `boxed` requires), and when mpv drops the
-        // connection the receiver drops, the send fails, and the task stops fetching.
-        let (tx, rx) = mpsc::channel::<Result<Bytes, io::Error>>(16);
-        let pump = reg.clone();
-        tauri::async_runtime::spawn(async move { pump_chunks(pump, start, end, tx).await });
-        let stream = futures_util::stream::unfold(rx, |mut rx| async move {
-            rx.recv().await.map(|item| (item.map(Frame::data), rx))
-        });
-        BodyExt::boxed(StreamBody::new(stream))
+        open(start, end).await?
     };
     builder.body(body).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+enum CastSource {
+    Online(Arc<Registration>),
+    File(PathBuf),
+}
+
+/// A one-track relay. Dropping it closes the listener and its active responses.
+pub struct CastRelay {
+    pub url: String,
+    pub content_type: String,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for CastRelay {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+impl CastRelay {
+    pub async fn open(
+        peer: SocketAddr,
+        data: &crate::orchestrator::PlaybackData,
+    ) -> Result<Self, String> {
+        let (source, mut meta) = if crate::local::is_local_song(&data.video_id) {
+            let path = PathBuf::from(&data.stream_url);
+            let total =
+                tokio::fs::metadata(&path).await.map_err(|_| "Cannot open this local track")?.len();
+            let content_type =
+                audio_type(&path).ok_or("This local file format is unsupported by Cast")?;
+            (CastSource::File(path), Meta { total, content_type: Some(content_type.to_owned()) })
+        } else {
+            let registration = Arc::new(Registration {
+                url: data.stream_url.clone(),
+                headers: data.headers.clone(),
+                meta: Mutex::new(None),
+            });
+            let meta =
+                meta_for(&registration).await.map_err(|_| "Could not open this track for Cast")?;
+            (CastSource::Online(registration), meta)
+        };
+        let fallback_type = match data.itag {
+            139..=141 | 256 | 258 | 599 => Some("audio/mp4"),
+            249..=251 | 600 => Some("audio/webm"),
+            _ => None,
+        };
+        if meta.content_type.as_deref().map_or(true, |mime| mime == "application/octet-stream") {
+            meta.content_type = fallback_type.map(str::to_owned);
+        }
+        let content_type =
+            meta.content_type.clone().ok_or("The stream did not provide an audio format")?;
+        let wildcard = match peer.ip() {
+            IpAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            IpAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+        };
+        let route = std::net::UdpSocket::bind((wildcard, 0)).map_err(|e| e.to_string())?;
+        route.connect(peer).map_err(|e| e.to_string())?;
+        let interface = route.local_addr().map_err(|e| e.to_string())?.ip();
+        let listener =
+            tokio::net::TcpListener::bind((interface, 0)).await.map_err(|e| e.to_string())?;
+        let addr = listener.local_addr().map_err(|e| e.to_string())?;
+        let token = Arc::new(format!("/{:032x}", rand::random::<u128>()));
+        let url = format!("http://{addr}{token}");
+        let source = Arc::new(source);
+        let task = tokio::spawn(async move {
+            let mut responses = tokio::task::JoinSet::new();
+            loop {
+                tokio::select! {
+                    accepted = listener.accept() => {
+                        let Ok((stream, from)) = accepted else { break };
+                        if from.ip() != peer.ip() || responses.len() >= 8 {
+                            continue;
+                        }
+                        let (source, token, meta) = (source.clone(), token.clone(), meta.clone());
+                        responses.spawn(async move {
+                            let svc = service_fn(move |req| {
+                                cast_response(req, source.clone(), token.clone(), meta.clone())
+                            });
+                            let _ = http1::Builder::new()
+                                .timer(TokioTimer::new())
+                                .header_read_timeout(Duration::from_secs(10))
+                                .serve_connection(TokioIo::new(stream), svc).await;
+                        });
+                    }
+                    _ = responses.join_next(), if !responses.is_empty() => {}
+                }
+            }
+        });
+        Ok(Self { url, content_type, task })
+    }
+}
+
+async fn cast_response(
+    req: Request<Incoming>,
+    source: Arc<CastSource>,
+    token: Arc<String>,
+    meta: Meta,
+) -> Result<Response<ProxyBody>, Infallible> {
+    if req.uri().path() != token.as_str() {
+        return Ok(empty(StatusCode::NOT_FOUND));
+    }
+    let mut response = match *req.method() {
+        Method::OPTIONS => empty(StatusCode::NO_CONTENT),
+        Method::GET | Method::HEAD => range_response(req, meta, |start, end| async move {
+            match source.as_ref() {
+                CastSource::Online(registration) => {
+                    Ok(stream_chunks(registration.clone(), start, end))
+                }
+                CastSource::File(path) => {
+                    let mut file =
+                        tokio::fs::File::open(path).await.map_err(|_| StatusCode::NOT_FOUND)?;
+                    file.seek(io::SeekFrom::Start(start))
+                        .await
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    let stream = ReaderStream::new(file.take(end - start + 1))
+                        .map(|item| item.map(Frame::data));
+                    Ok(BodyExt::boxed(StreamBody::new(stream)))
+                }
+            }
+        })
+        .await
+        .unwrap_or_else(empty),
+        _ => empty(StatusCode::METHOD_NOT_ALLOWED),
+    };
+    let headers = response.headers_mut();
+    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
+    headers.insert(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, HEAD, OPTIONS".parse().unwrap());
+    headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, "Range".parse().unwrap());
+    headers.insert("access-control-allow-private-network", "true".parse().unwrap());
+    headers.insert(
+        header::ACCESS_CONTROL_EXPOSE_HEADERS,
+        "Content-Range, Accept-Ranges, Content-Length".parse().unwrap(),
+    );
+    headers.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
+    Ok(response)
+}
+
+fn audio_type(path: &Path) -> Option<&'static str> {
+    match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "mp3" => Some("audio/mpeg"),
+        "m4a" | "mp4" => Some("audio/mp4"),
+        "aac" => Some("audio/aac"),
+        "wav" => Some("audio/wav"),
+        "flac" => Some("audio/flac"),
+        "ogg" | "oga" | "opus" => Some("audio/ogg"),
+        "webm" => Some("audio/webm"),
+        _ => None,
+    }
 }
 
 /// The cached [`Meta`], probing upstream once per registration if nothing has learned it yet.
@@ -441,6 +604,29 @@ fn resolve_window(want: Want, total: u64) -> Option<(u64, u64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn cast_relay_serves_only_the_selected_file_and_supports_seeking() {
+        let path =
+            std::env::temp_dir().join(format!("enzi-cast-{:032x}.mp3", rand::random::<u128>()));
+        tokio::fs::write(&path, b"abcdef").await.unwrap();
+        let data = crate::local::playback_data("LOCAL:cast-test", path.to_str().unwrap()).unwrap();
+        let relay = CastRelay::open("127.0.0.1:8009".parse().unwrap(), &data).await.unwrap();
+        let client =
+            reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(3)).build().unwrap();
+
+        let incorrect = format!("{}/another-file", relay.url);
+        assert_eq!(client.get(incorrect).send().await.unwrap().status(), StatusCode::NOT_FOUND);
+        let response =
+            client.get(&relay.url).header(header::RANGE, "bytes=2-4").send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes 2-4/6");
+        assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+        assert_eq!(response.bytes().await.unwrap().as_ref(), b"cde");
+
+        drop(relay);
+        tokio::fs::remove_file(path).await.unwrap();
+    }
 
     #[test]
     fn only_the_right_token_and_kind_route() {

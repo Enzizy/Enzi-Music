@@ -56,6 +56,18 @@ class PlaybackService : Service() {
         private var art: Bitmap? = null
         private var artFor: String? = null
 
+        internal fun dispatchWidgetAction(action: String): Boolean {
+            val service = instance ?: return false
+            service.send(action)
+            return true
+        }
+
+        internal fun openApp(context: Context): PendingIntent = PendingIntent.getActivity(
+            context, 0,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         fun setMetadata(context: Context, title: String, artist: String, album: String?, cover: String?, duration: Double) =
             main.post {
                 this.title = title
@@ -113,7 +125,7 @@ class PlaybackService : Service() {
                 override fun onStop() = send("stop")
                 override fun onSeekTo(pos: Long) = send("seek", pos / 1000.0)
             })
-            setSessionActivity(openApp())
+            setSessionActivity(openApp(this@PlaybackService))
             isActive = true
         }
         instance = this
@@ -138,6 +150,7 @@ class PlaybackService : Service() {
 
     override fun onDestroy() {
         instance = null
+        PlaybackWidget.clear(this)
         releaseLocks()
         session.isActive = false
         session.release()
@@ -198,6 +211,7 @@ class PlaybackService : Service() {
             android.util.Log.w("EnziMusic", "couldn't stay in the foreground", e)
         }
         if (playing) holdLocks() else releaseLocks()
+        if (title.isNotEmpty()) PlaybackWidget.show(this, title, artist, playing, art)
         loadArt()
     }
 
@@ -211,7 +225,7 @@ class PlaybackService : Service() {
             .setContentTitle(title)
             .setContentText(artist)
             .setLargeIcon(art)
-            .setContentIntent(openApp())
+            .setContentIntent(openApp(this))
             .setDeleteIntent(pending(ACTION_STOP))
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(playing)
@@ -228,12 +242,6 @@ class PlaybackService : Service() {
 
     private fun pending(action: String): PendingIntent = PendingIntent.getService(
         this, action.hashCode(), Intent(this, PlaybackService::class.java).setAction(action),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    private fun openApp(): PendingIntent = PendingIntent.getActivity(
-        this, 0,
-        Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 

@@ -1,4 +1,14 @@
 {
+	"cast": {
+		"title": "Cast audio",
+		"choose": "Choose a TV or speaker on your local network.",
+		"connected": "Connected to {device}",
+		"searching": "Looking for Cast devices…",
+		"connecting": "Connecting to {device}…",
+		"empty": "No Cast devices found. Check that your TV or speaker is on and connected to your local network.",
+		"refresh": "Search again",
+		"disconnect": "Disconnect"
+	},
 	"selection": {
 		"actions": "Selected track actions",
 		"count": "{count} selected",

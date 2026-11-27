@@ -3,6 +3,7 @@
 mod appicon;
 mod audioproxy;
 mod blocked;
+mod cast;
 mod cipher;
 mod commands;
 mod db;
@@ -1165,6 +1166,10 @@ pub fn run() {
             commands::toggle_pause,
             commands::seek,
             commands::set_volume,
+            commands::cast_devices,
+            commands::cast_target,
+            commands::cast_connect,
+            commands::cast_disconnect,
             commands::set_playback_params,
             commands::get_queue,
             commands::get_playback,
@@ -1391,6 +1396,9 @@ fn spawn_event_pump(
     tauri::async_runtime::spawn(async move {
         let mut throttle = PositionThrottle::new();
         while let Some(ev) = events.recv().await {
+            if state.cast.session().is_some() {
+                continue;
+            }
             match ev {
                 PlayerEvent::Position(p) => {
                     if throttle.should_emit(p, std::time::Instant::now()) {

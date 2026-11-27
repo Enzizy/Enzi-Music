@@ -474,6 +474,14 @@ export interface PlaybackSnapshot {
 }
 export const getPlayback = () => invoke<PlaybackSnapshot>('get_playback');
 
+export type CastTarget = { id: string; name: string };
+export const listCastDevices = () => invoke<CastTarget[]>('cast_devices');
+export const getCastTarget = () => invoke<CastTarget | null>('cast_target');
+export const connectCast = (id: string) => invoke<void>('cast_connect', { id });
+export const disconnectCast = () => invoke<void>('cast_disconnect');
+export const onCastTarget = (cb: (target: CastTarget | null) => void): Promise<UnlistenFn> =>
+	listen<CastTarget | null>('cast-target', (e) => cb(e.payload));
+
 // --- settings (context/11) -----------------------------------------------------------------
 export const getSettings = () => invoke<Record<string, string>>('get_settings');
 export const setSetting = (key: string, value: string) =>

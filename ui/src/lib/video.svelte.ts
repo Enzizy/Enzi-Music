@@ -42,7 +42,7 @@ export const counterpart = () => {
 export const canSwitch = () => prefs.musicVideos && (!!playback.now?.isVideo || !!counterpart());
 export const hasVideo = () =>
 	canVideo() && (prefs.nativeVideo ? !!videoReady[playback.now!.videoId] : !!video.url);
-export const showVideo = () => hasVideo() && video.want;
+export const showVideo = () => !playback.castTarget && hasVideo() && video.want;
 /** Cinema only makes sense while a video is actually the picture. */
 export const cinema = () => video.cinema && showVideo();
 
